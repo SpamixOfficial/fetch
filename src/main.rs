@@ -55,17 +55,23 @@ fn create_output(info: OsInfo) -> String {
     let param_names = ["", "OS", "Arch", "Kernel", "Shell"];
     let mut i = 0;
     while i < param_names.len() {
+        if i == 0 {
+            outstr.push_str(format!("┏{:━>lastlength$}┓\n", "").as_str());
+        }
         if param_names[i] != "" {
-            println!("* {}: {}", param_names[i], params[i]);
-        } else {
-            println!("{}", params[i]);
+            let numspaces = &lastlength - &param_names[i].len() - 3; 
+            outstr.push_str(format!("┃ {}:{:>numspaces$} ┃\n", param_names[i], params[i]).as_str());
+        } else { 
+            outstr.push_str(format!("┃{}┃\n", params[i]).as_str());
+            if i == 0 {
+                outstr.push_str(format!("┣{:━>lastlength$}┫\n", "").as_str())
+            }
         };
+        if i == param_names.len()-1 {
+            outstr.push_str(format!("┗{:━>lastlength$}┛\n", "").as_str());
+        }
         i += 1;
     };
-    /*outstr.push_str(format!("* {:X>5}\n", &user_host).as_str());
-    outstr.push_str(format!("* OS:\t\t{}\n", info.os_type).as_str());
-    outstr.push_str(format!("* Kernel:\t{}\n", info.os_release).as_str());
-    outstr.push_str(format!("* ").as_str());*/
     return outstr;
 }
 
