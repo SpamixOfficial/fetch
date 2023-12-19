@@ -31,16 +31,41 @@ impl OsInfo {
 }
 
 fn get_ascii() {
-    println!("Placeholder");    
+    println!("Placeholder");
 }
 
 fn create_output(info: OsInfo) -> String {
     let mut outstr = String::new();
-     
-    outstr.push_str(format!("* {}@{}\n", info.username, info.hostname).as_str());
+
+    let user_host = format!("{}@{}", info.username, info.hostname);
+    let os = &info.os_type;
+    let arch = &info.os_arch;
+    let kernel = &info.os_release;
+    let shell = &info.shell;
+
+    let params = [&user_host, &os, &arch, &kernel, &shell];
+    let mut lastlength = 0;
+    for param in params {
+        let length = param.len(); 
+        if length > lastlength {
+            lastlength = length;
+        };
+    }
+    
+    let param_names = ["", "OS", "Arch", "Kernel", "Shell"];
+    let mut i = 0;
+    while i < param_names.len() {
+        if param_names[i] != "" {
+            println!("* {}: {}", param_names[i], params[i]);
+        } else {
+            println!("{}", params[i]);
+        };
+        i += 1;
+    };
+    /*outstr.push_str(format!("* {:X>5}\n", &user_host).as_str());
     outstr.push_str(format!("* OS:\t\t{}\n", info.os_type).as_str());
     outstr.push_str(format!("* Kernel:\t{}\n", info.os_release).as_str());
-    outstr.push_str(format!("* ").as_str());
+    outstr.push_str(format!("* ").as_str());*/
     return outstr;
 }
 
