@@ -1,4 +1,8 @@
-use std::env;
+use std::{
+    env,
+    fs,
+    path
+};
 use uname::uname;
 
 struct OsInfo {
@@ -30,13 +34,41 @@ impl OsInfo {
     }
 }
 
-fn get_ascii() {
-    println!("Placeholder");
+fn get_ascii(info: &OsInfo) -> String {
+    let std_linux_art = "
+  .~.
+  /V\\
+ // \\\\
+/(   )\\
+ ^`~'^
+";
+    let std_unknown_art = "
+__
+ _)
+|
+*
+";
+    let art: String;
+    if &info.os_type == "linux" {
+        if path::Path::exists(path::Path::new("/etc/ascii-art")) {
+            art = fs::read_to_string("/etc/ascii-art").unwrap();
+        } else {
+            art = std_linux_art.to_string();
+        };
+    } else {
+        art = std_unknown_art.to_string();
+    }; 
+    art
 }
 
-fn create_output(info: OsInfo) -> String {
+fn create_output(art: String, info: OsInfo) -> String {
     let mut outstr = String::new();
 
+    let art_lines = art.split("\n");
+    if art_lines.len() > 8 {
+        eprintln!("Error, height of ascii art is more than 8...");
+        std::process::exit(1);
+    };
     let user_host = format!("{}@{}", info.username, info.hostname);
     let os = &info.os_type;
     let arch = &info.os_arch;
@@ -50,8 +82,10 @@ fn create_output(info: OsInfo) -> String {
         if length > lastlength {
             lastlength = length;
         };
-    }
+    };
     
+    let height: u8 = 8;
+    let wait = ...; 
     let param_names = ["", "OS", "Arch", "Kernel", "Shell"];
     let mut i = 0;
     while i < param_names.len() {
@@ -72,11 +106,13 @@ fn create_output(info: OsInfo) -> String {
         }
         i += 1;
     };
-    return outstr;
+    outstr
 }
 
 fn main() {
     let info = OsInfo::new();
-    let output = create_output(info);
+    let art = get_ascii(&info);
+    println!("{}", art);
+    let output = create_output(art, info); 
     println!("{}", output);
 }
