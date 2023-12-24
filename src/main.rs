@@ -64,11 +64,12 @@ __
 fn create_output(art: String, info: OsInfo) -> String {
     let mut outstr = String::new();
 
-    let art_lines = art.split("\n");
+    let art_lines: Vec<&str> = art.split("\n").collect();
     if art_lines.len() > 8 {
         eprintln!("Error, height of ascii art is more than 8...");
         std::process::exit(1);
     };
+    let longest_art_line = &art_lines.iter().max().unwrap().len();
     let user_host = format!("{}@{}", info.username, info.hostname);
     let os = &info.os_type;
     let arch = &info.os_arch;
@@ -82,12 +83,49 @@ fn create_output(art: String, info: OsInfo) -> String {
         if length > lastlength {
             lastlength = length;
         };
-    };
-    
-    let height: u8 = 8;
-    let wait = ...; 
+    }; 
+    let height = 8;
+    let wait = height/2 - ((art_lines.len() as f32 /2.0).ceil() as usize);
+    let mut wait_counter = wait.clone();
+    //debug
+    println!("{}", wait);
     let param_names = ["", "OS", "Arch", "Kernel", "Shell"];
     let mut i = 0;
+   
+    while i < param_names.len() {
+        let mut tempstr = String::new();
+        let mut ascii_str = String::new();
+        if wait_counter > 0 {
+            ascii_str.push_str(format!("{:>longest_art_line$}", "").as_str());
+            wait_counter -= 1;
+        } else if art_lines.len() < i-wait {
+            ascii_str.push_str(format!("{:>longest_art_line$}", "").as_str());
+        } else {
+            ascii_str = art_lines[i-wait+1].to_string(); 
+        };
+        let spaces_needed = longest_art_line-art_lines[i-wait+1].len();
+        tempstr.push_str("  ");
+        tempstr.push_str(ascii_str.as_str());
+        tempstr.push_str(format!("{:>spaces_needed$}  ", "").as_str());
+        if i == 0 {
+            tempstr.push_str(format!("┏{:━>lastlength$}┓\n", "").as_str());
+        }
+        if param_names[i] != "" {
+            let numspaces = &lastlength - &param_names[i].len() - 3; 
+            tempstr.push_str(format!("┃ {}:{:>numspaces$} ┃\n", param_names[i], params[i]).as_str());
+        } else { 
+            tempstr.push_str(format!("┃{}┃\n", params[i]).as_str());
+            if i == 0 {
+                tempstr.push_str(format!("┣{:━>lastlength$}┫\n", "").as_str())
+            }
+        };
+        if i == param_names.len()-1 {
+            tempstr.push_str(format!("┗{:━>lastlength$}┛\n", "").as_str());
+        }
+        outstr.push_str(tempstr.as_str());
+        i += 1;
+    }; 
+/*
     while i < param_names.len() {
         if i == 0 {
             outstr.push_str(format!("┏{:━>lastlength$}┓\n", "").as_str());
@@ -105,7 +143,7 @@ fn create_output(art: String, info: OsInfo) -> String {
             outstr.push_str(format!("┗{:━>lastlength$}┛\n", "").as_str());
         }
         i += 1;
-    };
+    }; */
     outstr
 }
 
