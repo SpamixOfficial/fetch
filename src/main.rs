@@ -64,7 +64,7 @@ __
 fn create_output(art: String, info: OsInfo) -> String {
     let mut outstr = String::new();
 
-    let art_lines: Vec<&str> = art.split("\n").collect();
+    let art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect();
     if art_lines.len() > 8 {
         eprintln!("Error, height of ascii art is more than 8...");
         std::process::exit(1);
@@ -85,7 +85,7 @@ fn create_output(art: String, info: OsInfo) -> String {
         };
     }; 
     let height = 8;
-    let wait = height/2 - ((art_lines.len() as f32 /2.0).ceil() as usize);
+    let wait = height/2 - ((art_lines.len() as f32 /2.0).ceil() as usize); 
     let mut wait_counter = wait.clone();
     //debug
     println!("{}", wait);
@@ -95,18 +95,20 @@ fn create_output(art: String, info: OsInfo) -> String {
     while i < param_names.len() {
         let mut tempstr = String::new();
         let mut ascii_str = String::new();
+        let mut spaces_needed = longest_art_line.to_owned();
         if wait_counter > 0 {
             ascii_str.push_str(format!("{:>longest_art_line$}", "").as_str());
             wait_counter -= 1;
         } else if art_lines.len() < i-wait {
             ascii_str.push_str(format!("{:>longest_art_line$}", "").as_str());
-        } else {
-            ascii_str = art_lines[i-wait+1].to_string(); 
-        };
-        let spaces_needed = longest_art_line-art_lines[i-wait+1].len();
+        } else { 
+            ascii_str = art_lines[i+1-wait].to_string();
+            spaces_needed = longest_art_line-art_lines[i].len();
+        };  
+
         tempstr.push_str("  ");
         tempstr.push_str(ascii_str.as_str());
-        tempstr.push_str(format!("{:>spaces_needed$}  ", "").as_str());
+        tempstr.push_str(format!("{:>spaces_needed$}  ", " ").as_str()); 
         if i == 0 {
             tempstr.push_str(format!("┏{:━>lastlength$}┓\n", "").as_str());
         }
@@ -121,7 +123,8 @@ fn create_output(art: String, info: OsInfo) -> String {
         };
         if i == param_names.len()-1 {
             tempstr.push_str(format!("┗{:━>lastlength$}┛\n", "").as_str());
-        }
+        };
+        dbg!(&tempstr);
         outstr.push_str(tempstr.as_str());
         i += 1;
     }; 
