@@ -1,8 +1,72 @@
 use std::{
     env, fs,
-    path::{self, Path},
+    path, any::type_name,
 };
 use uname::uname;
+
+
+fn type_of<T>(_: T) -> &'static str {
+    type_name::<T>()
+}
+
+// simple argument that takes parameters 
+#[derive(Debug)]
+struct SimpleArg {
+    short: char,
+    long: String,
+    parameters: usize // if 0, will return True if used and False if not used
+}
+
+//if you want it to execute something if used
+#[derive(Debug)]
+struct ActionArg {
+    short: char,
+    long: String,
+    action: fn()
+}
+
+
+#[derive(Debug)]
+enum ArgType {
+    Arg(SimpleArg),
+    ActionArg(ActionArg)
+}
+
+struct Argument {
+    args: Vec<ArgType>
+}
+
+impl Argument {
+    fn new() -> Self {
+        let args: Vec<ArgType> = vec![];
+        Self {
+            args
+        }
+    }
+    fn add_simple_arg(&mut self, short: char, long: &str, parameters: usize) {
+        let arg = SimpleArg {
+            short,
+            long: long.to_string(), 
+            parameters
+        };
+        self.args.push(ArgType::Arg(arg));
+    }
+
+    fn add_action_arg(&mut self, short: char, long: &str, action: fn()) {
+        let arg = ActionArg {
+            short,
+            long: long.to_string(), 
+            action
+        };
+        self.args.push(ArgType::ActionArg(arg));
+    }
+
+    fn parse_args(&mut self) {
+        for argument in &self.args {
+            dbg!(argument);
+        }; 
+    }
+}
 
 struct OsInfo {
     os_type: String,
@@ -31,6 +95,7 @@ impl OsInfo {
         }
     }
 }
+
 
 fn get_ascii(info: &OsInfo) -> String {
     let std_linux_art = "
@@ -69,7 +134,7 @@ __
     } else {
         path::Path::new("/etc/ascii-art")
     };
-    let mut art: String;
+    let art: String;
     if path::Path::exists(art_path) {
         art = fs::read_to_string("/etc/ascii-art").unwrap();
     } else {
@@ -175,6 +240,11 @@ fn create_output(art: String, info: OsInfo) -> String {
 }
 
 fn main() {
+    // debugging atm, will finish later
+    let mut parser = Argument::new();
+    parser.add_simple_arg('f', "foo", 0);
+    parser.parse_args();
+    // start of program
     let info = OsInfo::new();
     let art = get_ascii(&info);
     let output = create_output(art, info);
