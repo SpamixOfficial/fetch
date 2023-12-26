@@ -107,18 +107,20 @@ fn create_output(art: String, info: OsInfo) -> String {
             tmp_fieldstrings.push(format!("┗{:━>lastlength$}┛", ""));
         }
     }
-    let height = tmp_fieldstrings.len();
-    let out_length = if height > art_lines.len() {
-        height
+    
+    let out_length = if tmp_fieldstrings.len() > art_lines.len() {
+        tmp_fieldstrings.len()
     } else {
         art_lines.len()
     };
-    let wait = if height > art_lines.len() {
-        ((height as f32 / 2.0).floor() - (art_lines.len() as f32 / 2.0).floor()) as usize
+    
+    let wait = if tmp_fieldstrings.len() > art_lines.len() {
+        ((tmp_fieldstrings.len() as f32 / 2.0).floor() - (art_lines.len() as f32 / 2.0).floor()) as usize
     } else {
-        ((art_lines.len() as f32 / 2.0).floor() - (height as f32 / 2.0).floor()) as usize
+        ((art_lines.len() as f32 / 2.0).floor() - (tmp_fieldstrings.len() as f32 / 2.0).floor()) as usize
     };
     let mut wait_counter = wait.clone();
+    
     for i in 0..out_length {
         let spaces_needed: usize;
         let artline = if wait_counter == 0 && i-wait < art_lines.len() {
