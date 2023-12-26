@@ -1,4 +1,7 @@
-use std::{env, fs, path};
+use std::{
+    env, fs,
+    path::{self, Path},
+};
 use uname::uname;
 
 struct OsInfo {
@@ -37,22 +40,43 @@ fn get_ascii(info: &OsInfo) -> String {
 /(   )\\
  ^`~'^
 ";
+    let std_freebsd_art = "
+
+
+  ...      ....      ...  
+ .:;&x;.$&&&&&$&$$.+$&;:. 
+ .;:;$&$&&$&$&$$;&&$x;:x. 
+  .x&$$&$$$$$$$$$$x;;:X.  
+  .$$$&$Xx+;;;;;;;;:;;X.  
+ .&+X&X;;;;;;;;;:::::;;x. 
+ .&;;++;;;;;;;;:::;;:::$. 
+ .&;;;;;;;;;:::;;;;:::$$. 
+  .+;;;;;;;::;;;;;;:;X$.  
+  ..:;;;;;;;;;;;;;++;X.   
+    .$:;;;;;;;;++++XX.    
+      .:;;;;;;;;XX;.      
+         .......          
+
+";
     let std_unknown_art = "
 __
  _)
 |
 *
 ";
-    let art: String;
-    if &info.os_type == "linux" {
-        if path::Path::exists(path::Path::new("/etc/ascii-art")) {
-            art = fs::read_to_string("/etc/ascii-art").unwrap();
-        } else {
-            art = std_linux_art.to_string();
-        };
+    let art_path = if &info.os_type == "linux" && &info.os_type == "freebsd" {
+        path::Path::new("/etc/ascii-art")
     } else {
-        art = std_unknown_art.to_string();
+        path::Path::new("/etc/ascii-art")
     };
+    let mut art: String;
+    if path::Path::exists(art_path) {
+        art = fs::read_to_string("/etc/ascii-art").unwrap();
+    } else {
+        art = if &info.os_type == "linux" { std_linux_art.to_string() } else if &info.os_type == "freebsd" { std_freebsd_art.to_string() } else { std_unknown_art.to_string() };
+    };
+    // debug
+    // art = std_freebsd_art.to_string();
     art
 }
 
@@ -65,10 +89,7 @@ fn create_output(art: String, info: OsInfo) -> String {
 
     // get all art lines
     let art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect();
-    if art_lines.len() > 8 {
-        eprintln!("Error, height of ascii art is more than 8...");
-        std::process::exit(1);
-    };
+ 
     // get the longest art line
     let longest_art_line = &art_lines.iter().max().unwrap().len();
     // get all the fields
@@ -87,9 +108,9 @@ fn create_output(art: String, info: OsInfo) -> String {
             lastlength = length;
         };
     }
-    
+
     let param_names = ["", "OS", "Arch", "Kernel", "Shell"];
-    // Add whole field to vector
+    // Add all fields to the vector
     for i in 0..param_names.len() {
         if i == 0 {
             tmp_fieldstrings.push(format!("┏{:━>lastlength$}┓", ""));
@@ -107,23 +128,32 @@ fn create_output(art: String, info: OsInfo) -> String {
             tmp_fieldstrings.push(format!("┗{:━>lastlength$}┛", ""));
         }
     }
-    
+
+    // get how long the output will be in lines
+
     let out_length = if tmp_fieldstrings.len() > art_lines.len() {
         tmp_fieldstrings.len()
     } else {
         art_lines.len()
     };
-    
+
+    // get how long the field or the ascii art should wait
+
     let wait = if tmp_fieldstrings.len() > art_lines.len() {
-        ((tmp_fieldstrings.len() as f32 / 2.0).floor() - (art_lines.len() as f32 / 2.0).floor()) as usize
+        ((tmp_fieldstrings.len() as f32 / 2.0).floor() - (art_lines.len() as f32 / 2.0).floor())
+            as usize
     } else {
-        ((art_lines.len() as f32 / 2.0).floor() - (tmp_fieldstrings.len() as f32 / 2.0).floor()) as usize
+        ((art_lines.len() as f32 / 2.0).floor() - (tmp_fieldstrings.len() as f32 / 2.0).floor())
+            as usize
     };
+
+    // create counter
     let mut wait_counter = wait.clone();
-    
+
+    // combine art and fields into one output
     for i in 0..out_length {
         let spaces_needed: usize;
-        let artline = if wait_counter == 0 && i-wait < art_lines.len() {
+        let artline = if wait_counter == 0 && i - wait < art_lines.len() {
             spaces_needed = longest_art_line - art_lines[i - wait].len();
             art_lines[i - wait].to_string()
         } else {
@@ -137,7 +167,7 @@ fn create_output(art: String, info: OsInfo) -> String {
             tmp_fieldstrings[i].as_str().to_string()
         } else {
             String::from("")
-        }; 
+        };
         outstr.push_str(format!("  {}{:>spaces_needed$}  {}\n", artline, "", fieldstring).as_str());
     }
 
