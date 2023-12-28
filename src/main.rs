@@ -29,53 +29,38 @@ struct ActionArg {
 
 #[derive(Debug)]
 enum ArgType {
-    Arg(SimpleArg),
-    ActionArg(ActionArg)
+    Arg(SimpleArg)
 }
 
 struct Argument {
-    args: Vec<ArgType>
+    args: HashMap<char, (String, usize)>
 }
 
 impl Argument {
     fn new() -> Self {
-        let args: Vec<ArgType> = vec![];
+        let args: HashMap<char, (String, usize)> = HashMap::new();
         Self {
             args
         }
     }
-    fn add_simple_arg(&mut self, short: char, long: &str, parameters: usize) {
-        let arg = SimpleArg {
-            short,
-            long: long.to_string(), 
-            parameters
-        };
-        self.args.push(ArgType::Arg(arg));
-    }
-
-    fn add_action_arg(&mut self, short: char, long: &str, action: fn()) {
-        let arg = ActionArg {
-            short,
-            long: long.to_string(), 
-            action
-        };
-        self.args.push(ArgType::ActionArg(arg));
+    fn add_simple_arg(&mut self, short: char, long: &str, parameters: usize) { 
+        self.args.insert(short, (long.to_string(), parameters));
     }
 
     fn parse_args(&mut self) {
         let raw_args = std::env::args();
         let arguments = &self.args;
-        for (pos, val) in arguments.iter().enumerate() {
-            dbg!(pos);
-            match val {
-                ArgType::Arg(inner) => {
-                    dbg!(inner.short);
-                }
-                ArgType::ActionArg(inner) => {
-                    dbg!(inner.short);
-                }
+        for (pos, argument) in raw_args.into_iter().enumerate() {
+            if pos == 0 {
+                continue;
+            };
+            dbg!(argument.get(..2).unwrap());
+            if argument.starts_with("-") && argument.chars().nth(1).unwrap() != '-' {
+                dbg!(argument);
+            } else if argument.get(..2).unwrap() == "--" {
+                dbg!(argument);
             }
-        }; 
+        }
     }
 }
 
