@@ -1,6 +1,7 @@
 use std::{
     env, fs,
     path, any::type_name,
+    collections::HashMap
 };
 use uname::uname;
 
@@ -62,8 +63,18 @@ impl Argument {
     }
 
     fn parse_args(&mut self) {
-        for argument in &self.args {
-            dbg!(argument);
+        let raw_args = std::env::args();
+        let arguments = &self.args;
+        for (pos, val) in arguments.iter().enumerate() {
+            dbg!(pos);
+            match val {
+                ArgType::Arg(inner) => {
+                    dbg!(inner.short);
+                }
+                ArgType::ActionArg(inner) => {
+                    dbg!(inner.short);
+                }
+            }
         }; 
     }
 }
