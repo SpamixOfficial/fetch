@@ -1,66 +1,78 @@
-use std::{
-    env, fs,
-    path, any::type_name,
-    collections::HashMap
-};
+use std::{collections::HashMap, env, fs, path, process::exit, str};
 use uname::uname;
 
-
-fn type_of<T>(_: T) -> &'static str {
-    type_name::<T>()
-}
-
-// simple argument that takes parameters 
-#[derive(Debug)]
-struct SimpleArg {
-    short: char,
-    long: String,
-    parameters: usize // if 0, will return True if used and False if not used
-}
-
-//if you want it to execute something if used
-#[derive(Debug)]
-struct ActionArg {
-    short: char,
-    long: String,
-    action: fn()
-}
-
-
-#[derive(Debug)]
-enum ArgType {
-    Arg(SimpleArg)
-}
-
 struct Argument {
-    args: HashMap<char, (String, usize)>
+    args: HashMap<char, (String, usize)>,
 }
 
 impl Argument {
     fn new() -> Self {
         let args: HashMap<char, (String, usize)> = HashMap::new();
-        Self {
-            args
-        }
+        Self { args }
     }
-    fn add_simple_arg(&mut self, short: char, long: &str, parameters: usize) { 
+    fn add_arg(&mut self, mut short: char, long: &str, parameters: usize) {
+        if short == ' ' {
+            short = '-'
+        };
         self.args.insert(short, (long.to_string(), parameters));
     }
 
-    fn parse_args(&mut self) {
+    fn parse_args(&mut self) -> HashMap<String, (bool, Vec<String>)> {
         let raw_args = std::env::args();
+        let mut collected_raw_args: Vec<String> = std::env::args().collect();
+        collected_raw_args.remove(0);
         let arguments = &self.args;
+        let mut return_map: HashMap<String, (bool, Vec<String>)> = HashMap::new();
+        for key in arguments.keys() {
+            return_map.insert(key.to_string(), (false, vec![]));
+        }
+        dbg!(&return_map);
         for (pos, argument) in raw_args.into_iter().enumerate() {
             if pos == 0 {
                 continue;
             };
-            dbg!(argument.get(..2).unwrap());
+            dbg!(&argument);
             if argument.starts_with("-") && argument.chars().nth(1).unwrap() != '-' {
-                dbg!(argument);
-            } else if argument.get(..2).unwrap() == "--" {
-                dbg!(argument);
+                for part in argument.get(1..).unwrap().chars() {
+                    dbg!(&arguments.get(&part).unwrap().1);
+                    dbg!(pos);
+                    if arguments.contains_key(&part) {
+                        let arguments_needed = arguments.get(&part).unwrap().1;
+                        dbg!(collected_raw_args.len());
+                        if collected_raw_args.len() < pos + arguments_needed {
+                            eprintln!("Too few arguments passed to -{}", &part);
+                            exit(1);
+                        }
+                        *return_map.get_mut(&part.to_string()).unwrap() = (
+                            true,
+                            collected_raw_args[pos..(pos + arguments_needed)]
+                                .iter()
+                                .cloned()
+                                .collect(),
+                        );
+                    };
+                }
+            } else if argument.len() > 2 && argument.get(..2).unwrap() == "--" {
+                let part = argument.get(2..).unwrap();
+                dbg!(part);
+                for field in &*arguments {
+                    let key = field.0;
+                    let values = field.1;
+                    if part == values.0 {
+                        let arguments_needed = values.1;
+                        *return_map.get_mut(&key.to_string()).unwrap() = (
+                            true,
+                            collected_raw_args[pos..(pos + arguments_needed)]
+                                .iter()
+                                .cloned()
+                                .collect(),
+                        );
+                    }
+                };
             }
         }
+        dbg!(&return_map);
+        return_map
     }
 }
 
@@ -91,7 +103,6 @@ impl OsInfo {
         }
     }
 }
-
 
 fn get_ascii(info: &OsInfo) -> String {
     let std_linux_art = "
@@ -134,7 +145,13 @@ __
     if path::Path::exists(art_path) {
         art = fs::read_to_string("/etc/ascii-art").unwrap();
     } else {
-        art = if &info.os_type == "linux" { std_linux_art.to_string() } else if &info.os_type == "freebsd" { std_freebsd_art.to_string() } else { std_unknown_art.to_string() };
+        art = if &info.os_type == "linux" {
+            std_linux_art.to_string()
+        } else if &info.os_type == "freebsd" {
+            std_freebsd_art.to_string()
+        } else {
+            std_unknown_art.to_string()
+        };
     };
     // debug
     // art = std_freebsd_art.to_string();
@@ -150,7 +167,7 @@ fn create_output(art: String, info: OsInfo) -> String {
 
     // get all art lines
     let art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect();
- 
+
     // get the longest art line
     let longest_art_line = &art_lines.iter().max().unwrap().len();
     // get all the fields
@@ -238,8 +255,11 @@ fn create_output(art: String, info: OsInfo) -> String {
 fn main() {
     // debugging atm, will finish later
     let mut parser = Argument::new();
-    parser.add_simple_arg('f', "foo", 0);
-    parser.parse_args();
+    parser.add_arg('f', "foo", 0);
+    parser.add_arg('a', "all", 1);
+    parser.add_arg(' ', "a-long-arg", 0);
+    let args = parser.parse_args();
+    dbg!(args);
     // start of program
     let info = OsInfo::new();
     let art = get_ascii(&info);
