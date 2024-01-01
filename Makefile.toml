@@ -1,0 +1,15 @@
+[tasks.build]
+command = "cargo"
+args = ["build"]
+
+[tasks.install]
+alias = "unix_install"
+windows_alias = "platform_not_supported"
+
+[tasks.unix_install]
+script = "sudo cp target/release/fetch /usr/bin/fetch"
+dependencies = ["build"]
+
+[tasks.platform_not_supported]
+command = "echo"
+args = ["This platform is not supported at the moment"]
