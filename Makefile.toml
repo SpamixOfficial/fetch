@@ -1,6 +1,6 @@
 [tasks.build]
 command = "cargo"
-args = ["build"]
+args = ["build", "--release"]
 
 [tasks.install]
 alias = "unix_install"
