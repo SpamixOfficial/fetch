@@ -1,7 +1,14 @@
-use std::{env, fs, path, str};
+use std::{collections::HashMap, env, fs, io::Read, path, str};
 use taap;
 use uname::uname;
+
+struct OsRelease {
+    exists: bool,
+    os_release: HashMap<String, String>,
+}
+
 struct OsInfo {
+    os_release_file_content: OsRelease,
     os_type: String,
     os_arch: String,
     shell: String,
@@ -10,9 +17,45 @@ struct OsInfo {
     hostname: String,
 }
 
+impl OsRelease {
+    fn new() -> OsRelease {
+        let mut os_release_values: HashMap<String, String> = HashMap::new();
+        // check if the file exists
+        let os_release_file_path = path::Path::new("/etc/os-release");
+        let os_release_file_exists = match path::Path::try_exists(os_release_file_path) {
+            Ok(_) => true,
+            Err(_) => false,
+        };
+
+        // If file exists, read the contents
+        if os_release_file_exists {
+            // Read the file to the variable raw_file_content
+            let mut raw_file_content = String::new();
+            let mut raw_file = fs::File::open(os_release_file_path).unwrap();
+            raw_file.read_to_string(&mut raw_file_content).unwrap();
+
+            // Split file content into lines
+            let raw_file_lines: Vec<String> = raw_file_content
+                .lines()
+                .map(|value| value.to_string())
+                .collect();
+            raw_file_lines.iter().for_each(|line| {
+                let values: Vec<&str> = line.splitn(2, "=").collect();
+                os_release_values.insert(values.get(0).unwrap().to_string(), values.get(1).unwrap().to_string());
+            });
+        };
+        dbg!(&os_release_values);
+        OsRelease {
+            exists: os_release_file_exists,
+            os_release: os_release_values,
+        }
+    }
+}
+
 impl OsInfo {
     fn new() -> Self {
         Self {
+            os_release_file_content: OsRelease::new(),
             os_type: env::consts::OS.to_string(),
             os_arch: env::consts::ARCH.to_string(),
             shell: match env::var_os("SHELL") {
@@ -112,11 +155,14 @@ fn create_output(art: String, info: OsInfo) -> String {
     // get longest param (will redo)
     let mut lastlength = 0;
     for param in params {
-        let length = param.len();
+        let length = param.chars().count();
         if length > lastlength {
             lastlength = length;
         };
     }
+
+    // Add padding to the lastlength variable
+    lastlength += 2;
 
     let param_names = ["", "OS", "Arch", "Kernel", "Shell"];
     // Add all fields to the vector
@@ -128,7 +174,7 @@ fn create_output(art: String, info: OsInfo) -> String {
             let numspaces = &lastlength - &param_names[i].len() - 3;
             tmp_fieldstrings.push(format!("┃ {}:{:>numspaces$} ┃", param_names[i], params[i]));
         } else {
-            tmp_fieldstrings.push(format!("┃{}┃", params[i]));
+            tmp_fieldstrings.push(format!("┃ {} ┃", params[i]));
             if i == 0 {
                 tmp_fieldstrings.push(format!("┣{:━>lastlength$}┫", ""))
             }
