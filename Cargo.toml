@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 uname = "0.1.1"
+taap = "0.1.0"
