@@ -1,9 +1,11 @@
-use std::{collections::HashMap, env, fs, io::Read, path, str};
+use nix::sys::utsname;
+
+use std::{collections::HashMap, env, fs, io::Read, path, str, process::exit};
 use taap;
-use uname::uname;
 
 struct OsRelease {
-    exists: bool,
+    // Old value I might bring back
+    //exists: bool,
     os_release: HashMap<String, String>,
 }
 
@@ -34,19 +36,25 @@ impl OsRelease {
             let mut raw_file = fs::File::open(os_release_file_path).unwrap();
             raw_file.read_to_string(&mut raw_file_content).unwrap();
 
-            // Split file content into lines
+            // Split file content into lines and convert to String
             let raw_file_lines: Vec<String> = raw_file_content
                 .lines()
                 .map(|value| value.to_string())
                 .collect();
+            // Insert every line into the hashmap
             raw_file_lines.iter().for_each(|line| {
-                let values: Vec<&str> = line.splitn(2, "=").collect();
-                os_release_values.insert(values.get(0).unwrap().to_string(), values.get(1).unwrap().to_string());
+                let values: Vec<String> = line
+                    .splitn(2, "=")
+                    .map(|value| value.replacen("\"", "", 2))
+                    .collect();
+                os_release_values.insert(
+                    values.get(0).unwrap().to_string(),
+                    values.get(1).unwrap().to_string(),
+                );
             });
         };
-        dbg!(&os_release_values);
-        OsRelease {
-            exists: os_release_file_exists,
+        OsRelease { 
+            //exists: os_release_file_exists,
             os_release: os_release_values,
         }
     }
@@ -54,7 +62,8 @@ impl OsRelease {
 
 impl OsInfo {
     fn new() -> Self {
-        Self {
+        let uname = utsname::uname().unwrap();
+        return Self {
             os_release_file_content: OsRelease::new(),
             os_type: env::consts::OS.to_string(),
             os_arch: env::consts::ARCH.to_string(),
@@ -66,9 +75,10 @@ impl OsInfo {
                 Some(v) => v.into_string().unwrap(),
                 None => String::from("unknown"),
             },
-            os_release: uname().unwrap().release,
-            hostname: uname().unwrap().nodename,
-        }
+            os_release: String::from(uname.release().to_str().unwrap()),
+            hostname: String::from(uname.nodename().to_str().unwrap()) 
+
+        };
     }
 }
 
@@ -81,8 +91,6 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
  ^`~'^
 ";
     let std_freebsd_art = "
-
-
   ...      ....      ...  
  .:;&x;.$&&&&&$&$$.+$&;:. 
  .;:;$&$&&$&$&$$;&&$x;:x. 
@@ -96,7 +104,6 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
     .$:;;;;;;;;++++XX.    
       .:;;;;;;;;XX;.      
          .......          
-
 ";
     let std_unknown_art = "
  #######  
@@ -110,16 +117,23 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
     let os_type = if custom_logo != None {
         custom_logo.unwrap()
     } else {
-        info.os_type.clone()
+        match info.os_release_file_content.os_release.get("ID") {
+            Some(val) => {
+                val.clone()
+            },
+            None => {
+                info.os_type.clone()
+            }
+        }
     };
-    let art_path = if &info.os_type == "linux" && &info.os_type == "freebsd" {
-        path::Path::new("/etc/ascii-art")
-    } else {
-        path::Path::new("/etc/ascii-art")
-    };
+    let art_path = path::Path::new("/etc/ascii-art");
     let art: String;
     if path::Path::exists(art_path) {
         art = fs::read_to_string("/etc/ascii-art").unwrap();
+        if art.is_empty() {
+            eprintln!("Error! /etc/ascii-art is present but empty - /etc/ascii-art may NOT be empty");
+            exit(1);
+        }
     } else {
         art = if os_type == "linux" {
             std_linux_art.to_string()
@@ -129,12 +143,12 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
             std_unknown_art.to_string()
         };
     };
-    // debug
-    // art = std_freebsd_art.to_string();
     art
 }
 
 fn create_output(art: String, info: OsInfo) -> String {
+    // Preparation starts here
+
     // initialize the output string
     let mut outstr = String::new();
 
@@ -142,45 +156,53 @@ fn create_output(art: String, info: OsInfo) -> String {
     let mut tmp_fieldstrings: Vec<String> = vec![];
 
     // get all art lines
-    let art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect();
+    let art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect(); 
 
     // get all the fields
-    let user_host = format!("{}@{}", info.username, info.hostname);
-    let os = &info.os_type;
+    let user_host = format!(" {}@{} ", info.username, info.hostname);
+    let os_release_file = info.os_release_file_content.os_release;
+    let os = match os_release_file.get("NAME") {
+            Some(val) => {
+                /*if os_release_file.contains_key("ID_LIKE") {
+                    format!("{}({}-like)", val, os_release_file.get("ID_LIKE").unwrap())
+                } else {
+                    val.clone()
+                }*/
+                val.clone()
+            },
+            None => {
+                info.os_type.clone()
+            }
+        };
     let arch = &info.os_arch;
     let kernel = &info.os_release;
     let shell = &info.shell;
 
     let params = [&user_host, &os, &arch, &kernel, &shell];
-    // get longest param (will redo)
-    let mut lastlength = 0;
-    for param in params {
-        let length = param.chars().count();
-        if length > lastlength {
-            lastlength = length;
-        };
-    }
+    // get longest param
+    let longest_param = params.iter()
+            .max_by(|x, y| x.len().cmp(&y.len()))
+            .unwrap()
+            .chars()
+            .count();
+    let param_names = ["", "OS", "Arch", if &info.os_type == "linux" { "Kernel" } else { "Release" }, "Shell"];
 
-    // Add padding to the lastlength variable
-    lastlength += 2;
-
-    let param_names = ["", "OS", "Arch", "Kernel", "Shell"];
     // Add all fields to the vector
     for i in 0..param_names.len() {
         if i == 0 {
-            tmp_fieldstrings.push(format!("┏{:━>lastlength$}┓", ""));
+            tmp_fieldstrings.push(format!("┏{:━>longest_param$}┓", ""));
         }
         if param_names[i] != "" {
-            let numspaces = &lastlength - &param_names[i].len() - 3;
+            let numspaces = &longest_param - &param_names[i].len() - 3;
             tmp_fieldstrings.push(format!("┃ {}:{:>numspaces$} ┃", param_names[i], params[i]));
         } else {
-            tmp_fieldstrings.push(format!("┃ {} ┃", params[i]));
+            tmp_fieldstrings.push(format!("┃{}┃", params[i]));
             if i == 0 {
-                tmp_fieldstrings.push(format!("┣{:━>lastlength$}┫", ""))
+                tmp_fieldstrings.push(format!("┣{:━>longest_param$}┫", ""))
             }
         };
         if i == param_names.len() - 1 {
-            tmp_fieldstrings.push(format!("┗{:━>lastlength$}┛", ""));
+            tmp_fieldstrings.push(format!("┗{:━>longest_param$}┛", ""));
         }
     }
 
@@ -228,6 +250,8 @@ fn create_output(art: String, info: OsInfo) -> String {
 
     // create counter
     let mut wait_counter = wait.1.clone();
+
+    // Output creation starts from here
 
     // combine art and fields into one output
     for i in 0..out_length {
