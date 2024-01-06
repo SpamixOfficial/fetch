@@ -47,10 +47,14 @@ impl OsRelease {
                     .splitn(2, "=")
                     .map(|value| value.replacen("\"", "", 2))
                     .collect();
-                os_release_values.insert(
-                    values.get(0).unwrap().to_string(),
-                    values.get(1).unwrap().to_string(),
-                );
+                // If less than 2 values are present, we can assume something is wrong with that
+                // line and skip it
+                if values.len() == 2{
+                    os_release_values.insert(
+                        values.get(0).unwrap().to_string(),
+                        values.get(1).unwrap().to_string(),
+                    );
+                };
             });
         };
         OsRelease { 
@@ -161,7 +165,7 @@ fn create_output(art: String, info: OsInfo) -> String {
     // get all the fields
     let user_host = format!(" {}@{} ", info.username, info.hostname);
     let os_release_file = info.os_release_file_content.os_release;
-    let os = match os_release_file.get("NAME") {
+    let os = match os_release_file.get("PRETTY_NAME") {
             Some(val) => {
                 /*if os_release_file.contains_key("ID_LIKE") {
                     format!("{}({}-like)", val, os_release_file.get("ID_LIKE").unwrap())
