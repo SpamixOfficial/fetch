@@ -1,6 +1,6 @@
 use nix::sys::utsname;
 
-use std::{collections::HashMap, env, fs, io::Read, path, str, process::exit};
+use std::{collections::HashMap, env, fs, io::Read, path, process::exit, str};
 use taap;
 
 struct OsRelease {
@@ -49,7 +49,7 @@ impl OsRelease {
                     .collect();
                 // If less than 2 values are present, we can assume something is wrong with that
                 // line and skip it
-                if values.len() == 2{
+                if values.len() == 2 {
                     os_release_values.insert(
                         values.get(0).unwrap().to_string(),
                         values.get(1).unwrap().to_string(),
@@ -57,7 +57,7 @@ impl OsRelease {
                 };
             });
         };
-        OsRelease { 
+        OsRelease {
             //exists: os_release_file_exists,
             os_release: os_release_values,
         }
@@ -80,8 +80,7 @@ impl OsInfo {
                 None => String::from("unknown"),
             },
             os_release: String::from(uname.release().to_str().unwrap()),
-            hostname: String::from(uname.nodename().to_str().unwrap()) 
-
+            hostname: String::from(uname.nodename().to_str().unwrap()),
         };
     }
 }
@@ -109,6 +108,55 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
       .:;;;;;;;;XX;.      
          .......          
 ";
+    let std_openbsd_art = "
+
+
+             @  @@ @@              
+            @@%@@%%+#@%@ @@        
+         @@@%#---=--:=++**@@       
+       @#@*+--:+-::+::-=--*%@@@    
+     @@@@#--=-:-:--:--:=::--+@@    
+      @*:--:=-:-:-:::::-=-+*-@@    
+     %%+=-+::-.::...:::::#=+**#@   
+@%+*%@@+-+--:...:....::::==-+#*%   
+ @*--+*-=:-:.:.:....:::::::+=::*@  
+   #-::-:==:+.=---:.::::::-#-+==#% 
+   @#-*#==:=-=-:=-.::--:::-:-.-#*+@
+    @#@@#:-=:==*:-:::-:-=-=-=##@   
+        *#*=:=-:--::-:-=::==#%@    
+       @@@%@+-+-==:=+--+-+*%#@     
+            #@%#*#**+***#@@@       
+            @ @ %@@@*@@@@@         
+                @   @              
+";
+    let std_netbsd_art = "
+                  ++++++  
+      +      ++++++       
+     * ++++++++++++++     
+      * +++++++++         
+       *++++++            
+       *                  
+ ++ +     + ** * *   ** * 
+  +++ + +++ **** **  ** **
+   ++ +  ++ ** *   * ** **
+ +  + ++  + **** * * **** 
+           *              
+            *             
+            **            
+             **           
+";
+    let std_macos_art = "                               
+          =    
+        ===    
+    =   =  =   
+ ==============
+-------------  
+=============  
+************** 
+ **************
+  ++++++++++++ 
+    ++    ++   
+";
     let std_unknown_art = "
  #######  
 ##     ## 
@@ -122,12 +170,8 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
         custom_logo.unwrap()
     } else {
         match info.os_release_file_content.os_release.get("ID") {
-            Some(val) => {
-                val.clone()
-            },
-            None => {
-                info.os_type.clone()
-            }
+            Some(val) => val.clone(),
+            None => info.os_type.clone(),
         }
     };
     let art_path = path::Path::new("/etc/ascii-art");
@@ -135,7 +179,9 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
     if path::Path::exists(art_path) {
         art = fs::read_to_string("/etc/ascii-art").unwrap();
         if art.is_empty() {
-            eprintln!("Error! /etc/ascii-art is present but empty - /etc/ascii-art may NOT be empty");
+            eprintln!(
+                "Error! /etc/ascii-art is present but empty - /etc/ascii-art may NOT be empty"
+            );
             exit(1);
         }
     } else {
@@ -143,6 +189,12 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
             std_linux_art.to_string()
         } else if os_type == "freebsd" {
             std_freebsd_art.to_string()
+        } else if os_type == "openbsd" {
+            std_openbsd_art.to_string()
+        } else if os_type == "netbsd" {
+            std_netbsd_art.to_string()
+        } else if os_type == "macos" {
+            std_macos_art.to_string()
         } else {
             std_unknown_art.to_string()
         };
@@ -160,36 +212,45 @@ fn create_output(art: String, info: OsInfo) -> String {
     let mut tmp_fieldstrings: Vec<String> = vec![];
 
     // get all art lines
-    let art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect(); 
+    let art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect();
 
     // get all the fields
     let user_host = format!(" {}@{} ", info.username, info.hostname);
     let os_release_file = info.os_release_file_content.os_release;
     let os = match os_release_file.get("PRETTY_NAME") {
-            Some(val) => {
-                /*if os_release_file.contains_key("ID_LIKE") {
-                    format!("{}({}-like)", val, os_release_file.get("ID_LIKE").unwrap())
-                } else {
-                    val.clone()
-                }*/
+        Some(val) => {
+            /*if os_release_file.contains_key("ID_LIKE") {
+                format!("{}({}-like)", val, os_release_file.get("ID_LIKE").unwrap())
+            } else {
                 val.clone()
-            },
-            None => {
-                info.os_type.clone()
-            }
-        };
+            }*/
+            val.clone()
+        }
+        None => info.os_type.clone(),
+    };
     let arch = &info.os_arch;
     let kernel = &info.os_release;
     let shell = &info.shell;
 
     let params = [&user_host, &os, &arch, &kernel, &shell];
     // get longest param
-    let longest_param = params.iter()
-            .max_by(|x, y| x.len().cmp(&y.len()))
-            .unwrap()
-            .chars()
-            .count();
-    let param_names = ["", "OS", "Arch", if &info.os_type == "linux" { "Kernel" } else { "Release" }, "Shell"];
+    let longest_param = params
+        .iter()
+        .max_by(|x, y| x.len().cmp(&y.len()))
+        .unwrap()
+        .chars()
+        .count();
+    let param_names = [
+        "",
+        "OS",
+        "Arch",
+        if &info.os_type == "linux" {
+            "Kernel"
+        } else {
+            "Release"
+        },
+        "Shell",
+    ];
 
     // Add all fields to the vector
     for i in 0..param_names.len() {
