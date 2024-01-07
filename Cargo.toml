@@ -2,8 +2,11 @@
 name = "fetch"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "A small fetch tool written in rust"
+license = "BSD-4-Clause"
+repository = "https://gitlab.com/SpamixOfficial/fetch"
+keywords = ["fetch", "system-info"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 taap = "0.1.1"
