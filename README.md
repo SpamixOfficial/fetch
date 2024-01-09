@@ -2,7 +2,18 @@
 
 Simple fetch command written in rust
 
+## NOTE
+This tool is still in development so things might change quickly or (worst case scenario) break.
+
+If something breaks, please refer to this documentation or file an issue on GitLab or GitHub!
+
 ## Installation
+
+First git clone and enter the repository:
+
+```
+$ git clone https://gitlab.com/SpamixOfficial/fetch && cd fetch
+```
 
 There's 3 ways to install fetch:
 
@@ -16,15 +27,12 @@ Prerequisites:
 - Cargo
 - [cargo make](https://github.com/sagiegurari/cargo-make)
 
-Download, build and install fetch:
-
+For a system-wide install (requires sudo)
 ```
-# Git clone the Repository
-$ git clone https://gitlab.com/SpamixOfficial/fetch
-
-# Use this for a global install (requires sudo/admin privilegies)
-$ cargo make install
-# Use this for an user install (Only linux supports this at the moment)(sudo/admin not required)
+# cargo make install
+```
+For an user install
+```
 $ cargo make install-user
 ```
 
@@ -38,20 +46,21 @@ Prerequisites:
 - Cargo
 - make
 
-Download, build and install fetch:
+For a system-wide install (requires sudo)
+
+You can specify `BIN_LOCATION=` if you want to change where it is installed 
+
+Default install location is `/usr/local/bin/`
+```
+# make install 
+```
+For an user install
+
+You can specify `USER_BIN_LOCATION=` if you want to change where it is installed 
+
+Default install location is `~/.local/bin/`
 
 ```
-# Git clone the Repository
-$ git clone https://gitlab.com/SpamixOfficial/fetch
-
-# Use this for a global install (requires sudo/admin privilegies)
-# You can specify "BIN_LOCATION=" if you want to change where it is installed 
-# Default install location is /usr/local/bin/
-$ make install 
-
-# Use this for an user install (sudo/admin not required)
-# You can specify "USER_BIN_LOCATION=" if you want to change where it is installed
-# Default install location is ~/.local/bin/
 $ make install INSTALL_MODE="USER"
 ```
 
@@ -65,12 +74,12 @@ Prerequisites:
 - Rust version 2021
 - Cargo
 
-Build from source manually
-
+For a system-wide install (requires sudo)
 ```
-# For a system-wide install (requires sudo)
-$ cargo build --release && sudo cp ./target/release/fetch /usr/local/bin/fetch
-# For an user install (does not require sudo)
+# cargo build --release && sudo cp ./target/release/fetch /usr/local/bin/fetch
+```
+For an user install
+``` 
 $ cargo build --release && cp ./target/release/fetch ~/.local/bin/fetch
 ```
 
