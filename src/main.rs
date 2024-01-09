@@ -1,7 +1,41 @@
 use nix::sys::utsname;
-use toml::Table;
 use std::{collections::HashMap, env, fs, io::Read, path, process::exit, str};
 use taap;
+use toml;
+
+fn main() {
+    // Argument creation and handling
+    let mut arguments = taap::Argument::new(
+        "fetch",
+        "Minimal and easy fetch tool written in rust",
+        "",
+        "SpamixOfficial 2024",
+    );
+    arguments.add_option('c', "config", "1", Some("Manually specify the config file"));
+    arguments.add_option('-', "os-logo", "1", Some("Manually specify OS logo"));
+    arguments.add_exit_status(0, "Everything went well");
+    arguments.add_exit_status(1, "An error occurred");
+    let args = arguments.parse_args();
+
+    // Start of program
+    get_config(args.get("c").unwrap().to_owned());
+
+    let os_logo = args.get("os-logo").unwrap();
+    let info = OsInfo::new();
+    let art;
+    if os_logo.0 {
+        art = get_ascii(&info, Some(os_logo.1.get(0).unwrap().to_owned()));
+    } else {
+        art = get_ascii(&info, None);
+    };
+    let output = create_output(art, info);
+    println!("{}", output);
+}
+
+struct Config {
+    art_directory: String,
+    modules: Vec<String>
+}
 
 struct OsRelease {
     // Old value I might bring back
@@ -85,13 +119,33 @@ impl OsInfo {
     }
 }
 
-fn get_config() {
-    let file_content = match fs::read_to_string("src/test.toml") {
-        Ok(val) => {val},
-        Err(_) => {println!("[warning] Config file not found! Default configuration will be used"); String::from("")}
+fn get_config(custom_configuration: (bool, Vec<String>)) {
+    let configuration_file = if custom_configuration.0 == true {
+        custom_configuration.1.get(0).unwrap().to_owned()
+    } else if path::Path::new("~/.config/fetch/config.toml")
+        .try_exists()
+        .is_err()
+    {
+        "/etc/fetch/config.toml".to_string()
+    } else {
+        "~/.config/fetch/config.toml".to_string()
     };
-    let toml_content = file_content.parse::<toml::Table>().unwrap();
-    dbg!(toml_content);
+
+    dbg!(&configuration_file);
+
+    let file_content = match fs::read_to_string(configuration_file) {
+        Ok(val) => val,
+        Err(_) => {
+            println!("[warning] Config file not found! Default configuration will be used");
+            String::from("")
+        }
+    };
+    let toml_content = match file_content.parse::<toml::Table>() {
+        Ok(val) => {val},
+        Err(e) => {eprintln!("{}", e); exit(1)}
+    }; 
+    dbg!(&toml_content["general"].get("modules").unwrap()); 
+    dbg!(&toml_content);
 }
 
 fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
@@ -370,28 +424,4 @@ fn create_output(art: String, info: OsInfo) -> String {
     }
 
     outstr
-}
-
-fn main() {
-    get_config();
-    let mut arguments = taap::Argument::new(
-        "fetch",
-        "Minimal and easy fetch tool written in rust",
-        "",
-        "SpamixOfficial 2024",
-    );
-    arguments.add_option('-', "os-logo", "1", Some("Manually specify OS logo"));
-    arguments.add_exit_status(0, "Everything went well");
-    arguments.add_exit_status(1, "An error occurred");
-    let args = arguments.parse_args();
-    let os_logo = args.get("os-logo").unwrap();
-    let info = OsInfo::new();
-    let art;
-    if os_logo.0 {
-        art = get_ascii(&info, Some(os_logo.1.get(0).unwrap().to_owned()));
-    } else {
-        art = get_ascii(&info, None);
-    };
-    let output = create_output(art, info);
-    println!("{}", output);
 }
