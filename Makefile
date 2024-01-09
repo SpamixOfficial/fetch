@@ -1,3 +1,4 @@
+SHELL=/bin/bash
 INSTALL_MODE="GLOBAL"
 BIN_LOCATION=/usr/local/bin/
 USER_BIN_LOCATION=~/.local/bin/
