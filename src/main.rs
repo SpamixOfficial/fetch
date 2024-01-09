@@ -1,5 +1,5 @@
 use nix::sys::utsname;
-
+use toml::Table;
 use std::{collections::HashMap, env, fs, io::Read, path, process::exit, str};
 use taap;
 
@@ -83,6 +83,15 @@ impl OsInfo {
             hostname: String::from(uname.nodename().to_str().unwrap()),
         };
     }
+}
+
+fn get_config() {
+    let file_content = match fs::read_to_string("src/test.toml") {
+        Ok(val) => {val},
+        Err(_) => {println!("[warning] Config file not found! Default configuration will be used"); String::from("")}
+    };
+    let toml_content = file_content.parse::<toml::Table>().unwrap();
+    dbg!(toml_content);
 }
 
 fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
@@ -364,6 +373,7 @@ fn create_output(art: String, info: OsInfo) -> String {
 }
 
 fn main() {
+    get_config();
     let mut arguments = taap::Argument::new(
         "fetch",
         "Minimal and easy fetch tool written in rust",
