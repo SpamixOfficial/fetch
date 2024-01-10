@@ -273,13 +273,15 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
             None => info.os_type.clone(),
         }
     };
+    
+   dbg!(path::Path::new("~/.config/fetch/art/").exists()); 
 
     let art_directory = match &config.general.art_directory {
         Some(val) => val.to_owned(),
         None => {
-            if path::Path::new("~/.config/fetch/art/").try_exists().is_ok() {
+            if path::Path::new("~/.config/fetch/art/").exists() {
                 "~/.config/fetch/art/".to_string()
-            } else if path::Path::new("/etc/fetch/art/").try_exists().is_ok() {
+            } else if path::Path::new("/etc/fetch/art/").exists() {
                 "/etc/fetch/art/".to_string()
             } else {
                 println!("Error: No art directory is present. Please create either \"/etc/fetch/art/\" or \"~/.config/fetch/art\" and install the required art!");
@@ -303,12 +305,19 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
             exit(1);
         }
     } else {
+        art = "".to_string();
         let paths = fs::read_dir(art_directory).unwrap();
-        &paths.into_iter().for_each(|path| {
-            if &path.unwrap().path().to_str().unwrap() == os_type.as_str() {
+        let mut found = false;
+        /*for path in paths {
+            if &path.unwrap(). == os_type.as_str() {
                 art = path.unwrap().path().to_str().unwrap().to_string();
+                found = true;
+                break;
             };
-        });
+        };*/
+        &paths.into_iter().for_each(|path| {
+            dbg!(path);
+        }); 
         /*art = if os_type == "linux" {
             std_linux_art.to_string()
         } else if os_type == "freebsd" {
