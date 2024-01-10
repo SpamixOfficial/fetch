@@ -1,4 +1,5 @@
 use nix::sys::utsname;
+use serde::Deserialize;
 use std::{collections::HashMap, env, fs, io::Read, path, process::exit, str};
 use taap;
 use toml;
@@ -18,23 +19,47 @@ fn main() {
     let args = arguments.parse_args();
 
     // Start of program
-    get_config(args.get("c").unwrap().to_owned());
+    let config = get_config(args.get("c").unwrap().to_owned());
 
     let os_logo = args.get("os-logo").unwrap();
     let info = OsInfo::new();
     let art;
     if os_logo.0 {
-        art = get_ascii(&info, Some(os_logo.1.get(0).unwrap().to_owned()));
+        art = get_ascii(&info, Some(os_logo.1.get(0).unwrap().to_owned()), &config);
     } else {
-        art = get_ascii(&info, None);
+        art = get_ascii(&info, None, &config);
     };
     let output = create_output(art, info);
     println!("{}", output);
 }
 
+#[derive(Deserialize, Debug)]
 struct Config {
-    art_directory: String,
-    modules: Vec<String>
+    general: General,
+    modules: Modules,
+}
+
+#[derive(Deserialize, Debug)]
+struct General {
+    default_art: String,
+    art_directory: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+struct Modules {
+    modules: Vec<String>,
+    definitions: Vec<Module>,
+}
+
+#[derive(Deserialize, Debug)]
+struct Module {
+    name: String,
+    key: String,
+    format: String,
+    #[serde(rename(deserialize = "type"))]
+    module_type: String,
+    text: Option<String>,
+    execute: Option<String>,
 }
 
 struct OsRelease {
@@ -119,7 +144,7 @@ impl OsInfo {
     }
 }
 
-fn get_config(custom_configuration: (bool, Vec<String>)) {
+fn get_config(custom_configuration: (bool, Vec<String>)) -> Config {
     let configuration_file = if custom_configuration.0 == true {
         custom_configuration.1.get(0).unwrap().to_owned()
     } else if path::Path::new("~/.config/fetch/config.toml")
@@ -133,22 +158,33 @@ fn get_config(custom_configuration: (bool, Vec<String>)) {
 
     dbg!(&configuration_file);
 
+    let default_configuration = r#"
+    [general]
+    art_directory = "erm"
+    [modules]
+    modules = []
+    definitions = [{ name = "test", key = "tesstt", format = "{1} {2}", type = "command" }]"#;
+
     let file_content = match fs::read_to_string(configuration_file) {
         Ok(val) => val,
         Err(_) => {
             println!("[warning] Config file not found! Default configuration will be used");
-            String::from("")
+            String::from(default_configuration)
         }
     };
-    let toml_content = match file_content.parse::<toml::Table>() {
-        Ok(val) => {val},
-        Err(e) => {eprintln!("{}", e); exit(1)}
-    }; 
-    dbg!(&toml_content["general"].get("modules").unwrap()); 
-    dbg!(&toml_content);
+
+    let config: Config = match toml::from_str(&file_content) {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{}", e);
+            exit(1)
+        }
+    };
+
+    config
 }
 
-fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
+fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> String {
     let std_linux_art = "
   .~.
   /V\\
@@ -237,18 +273,43 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
             None => info.os_type.clone(),
         }
     };
-    let art_path = path::Path::new("/etc/ascii-art");
+
+    let art_directory = match &config.general.art_directory {
+        Some(val) => val.to_owned(),
+        None => {
+            if path::Path::new("~/.config/fetch/art/").try_exists().is_ok() {
+                "~/.config/fetch/art/".to_string()
+            } else if path::Path::new("/etc/fetch/art/").try_exists().is_ok() {
+                "/etc/fetch/art/".to_string()
+            } else {
+                println!("Error: No art directory is present. Please create either \"/etc/fetch/art/\" or \"~/.config/fetch/art\" and install the required art!");
+                exit(1);
+            }
+        }
+    };
+
+    dbg!(&art_directory);
+
+    let art_path = path::Path::new(config.general.default_art.as_str());
     let art: String;
     if path::Path::exists(art_path) {
-        art = fs::read_to_string("/etc/ascii-art").unwrap();
+        art = fs::read_to_string(art_path).unwrap();
         if art.is_empty() {
             eprintln!(
-                "Error! /etc/ascii-art is present but empty - /etc/ascii-art may NOT be empty"
+                "Error! {} is present but empty - {} may NOT be empty",
+                art_path.to_str().unwrap(),
+                art_path.to_str().unwrap()
             );
             exit(1);
         }
     } else {
-        art = if os_type == "linux" {
+        let paths = fs::read_dir(art_directory).unwrap();
+        &paths.into_iter().for_each(|path| {
+            if &path.unwrap().path().to_str().unwrap() == os_type.as_str() {
+                art = path.unwrap().path().to_str().unwrap().to_string();
+            };
+        });
+        /*art = if os_type == "linux" {
             std_linux_art.to_string()
         } else if os_type == "freebsd" {
             std_freebsd_art.to_string()
@@ -260,7 +321,7 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>) -> String {
             std_macos_art.to_string()
         } else {
             std_unknown_art.to_string()
-        };
+        };*/
     };
     art
 }
