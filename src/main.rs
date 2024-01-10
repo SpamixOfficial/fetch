@@ -1,5 +1,6 @@
 use nix::sys::utsname;
 use serde::Deserialize;
+use dirs;
 use std::{collections::HashMap, env, fs, io::Read, path, process::exit, str};
 use taap;
 use toml;
@@ -19,10 +20,10 @@ fn main() {
     let args = arguments.parse_args();
 
     // Start of program
-    let config = get_config(args.get("c").unwrap().to_owned());
+    let info = OsInfo::new();
+    let config = get_config(&info, args.get("c").unwrap().to_owned());
 
     let os_logo = args.get("os-logo").unwrap();
-    let info = OsInfo::new();
     let art;
     if os_logo.0 {
         art = get_ascii(&info, Some(os_logo.1.get(0).unwrap().to_owned()), &config);
@@ -144,10 +145,11 @@ impl OsInfo {
     }
 }
 
-fn get_config(custom_configuration: (bool, Vec<String>)) -> Config {
+fn get_config(info: &OsInfo, custom_configuration: (bool, Vec<String>)) -> Config {
+    let config_dir = path::Path::from(dirs::config_dir().unwrap().pa).join(if info.os_type == "macos" { "se.spamix.fetch" } else { "fetch" });
     let configuration_file = if custom_configuration.0 == true {
         custom_configuration.1.get(0).unwrap().to_owned()
-    } else if path::Path::new("~/.config/fetch/config.toml")
+    } else if path::Path::new()
         .try_exists()
         .is_err()
     {
@@ -279,9 +281,9 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
     let art_directory = match &config.general.art_directory {
         Some(val) => val.to_owned(),
         None => {
-            if path::Path::new("~/.config/fetch/art/").exists() {
+            if path::Path::new("~/.config/fetch/art/").exists() == true {
                 "~/.config/fetch/art/".to_string()
-            } else if path::Path::new("/etc/fetch/art/").exists() {
+            } else if path::Path::new("/etc/fetch/art/").exists() == true {
                 "/etc/fetch/art/".to_string()
             } else {
                 println!("Error: No art directory is present. Please create either \"/etc/fetch/art/\" or \"~/.config/fetch/art\" and install the required art!");
