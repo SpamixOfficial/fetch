@@ -1,6 +1,7 @@
+use dirs;
+use json;
 use nix::sys::utsname;
 use serde::Deserialize;
-use dirs;
 use std::{collections::HashMap, env, fs, io::Read, path, process::exit, str};
 use taap;
 use toml;
@@ -43,6 +44,7 @@ struct Config {
 #[derive(Deserialize, Debug)]
 struct General {
     default_art: String,
+    art_config: String,
     art_directory: Option<String>,
 }
 
@@ -146,16 +148,18 @@ impl OsInfo {
 }
 
 fn get_config(info: &OsInfo, custom_configuration: (bool, Vec<String>)) -> Config {
-    let config_dir = path::Path::from(dirs::config_dir().unwrap().pa).join(if info.os_type == "macos" { "se.spamix.fetch" } else { "fetch" });
+    let config_dir =
+        path::Path::new(dirs::config_dir().unwrap().as_path()).join(if info.os_type == "macos" {
+            "se.spamix.fetch"
+        } else {
+            "fetch"
+        });
     let configuration_file = if custom_configuration.0 == true {
         custom_configuration.1.get(0).unwrap().to_owned()
-    } else if path::Path::new()
-        .try_exists()
-        .is_err()
-    {
+    } else if config_dir.join("config.toml").try_exists().is_err() {
         "/etc/fetch/config.toml".to_string()
     } else {
-        "~/.config/fetch/config.toml".to_string()
+        config_dir.join("config.toml").to_str().unwrap().to_string()
     };
 
     dbg!(&configuration_file);
@@ -275,18 +279,42 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
             None => info.os_type.clone(),
         }
     };
-    
-   dbg!(path::Path::new("~/.config/fetch/art/").exists()); 
+
+    let config_dir =
+        path::Path::new(dirs::config_dir().unwrap().as_path()).join(if info.os_type == "macos" {
+            "se.spamix.fetch"
+        } else {
+            "fetch"
+        });
+
+    let raw_art_index_content = match fs::read_to_string(config_dir.join("art").join("index.json"))
+    {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("Error: {e}");
+            exit(1)
+        }
+    };
+
+    let art_index = match json::parse(raw_art_index_content.as_str()) {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("Error: {e}");
+            exit(1)
+        }
+    };
+
+    dbg!(art_index);
 
     let art_directory = match &config.general.art_directory {
         Some(val) => val.to_owned(),
         None => {
-            if path::Path::new("~/.config/fetch/art/").exists() == true {
-                "~/.config/fetch/art/".to_string()
+            if config_dir.join("art").exists() == true {
+                config_dir.join("art").to_str().unwrap().to_string()
             } else if path::Path::new("/etc/fetch/art/").exists() == true {
                 "/etc/fetch/art/".to_string()
             } else {
-                println!("Error: No art directory is present. Please create either \"/etc/fetch/art/\" or \"~/.config/fetch/art\" and install the required art!");
+                println!("Error: No art directory is present. Please create either \"/etc/fetch/art/\" or \"{}/art\" and install the required art!", config_dir.to_str().unwrap());
                 exit(1);
             }
         }
@@ -309,30 +337,6 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
     } else {
         art = "".to_string();
         let paths = fs::read_dir(art_directory).unwrap();
-        let mut found = false;
-        /*for path in paths {
-            if &path.unwrap(). == os_type.as_str() {
-                art = path.unwrap().path().to_str().unwrap().to_string();
-                found = true;
-                break;
-            };
-        };*/
-        &paths.into_iter().for_each(|path| {
-            dbg!(path);
-        }); 
-        /*art = if os_type == "linux" {
-            std_linux_art.to_string()
-        } else if os_type == "freebsd" {
-            std_freebsd_art.to_string()
-        } else if os_type == "openbsd" {
-            std_openbsd_art.to_string()
-        } else if os_type == "netbsd" {
-            std_netbsd_art.to_string()
-        } else if os_type == "macos" {
-            std_macos_art.to_string()
-        } else {
-            std_unknown_art.to_string()
-        };*/
     };
     art
 }
