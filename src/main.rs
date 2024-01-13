@@ -15,13 +15,15 @@ fn main() {
     );
     arguments.add_option('c', "config", "1", Some("Manually specify the config file"));
     arguments.add_option('-', "os-logo", "1", Some("Manually specify OS logo"));
+    // todo
+    //arguments.add_option('l', "list-art", "0", Some("List all known available art"));
     arguments.add_exit_status(0, "Everything went well");
     arguments.add_exit_status(1, "An error occurred");
     let args = arguments.parse_args();
 
     // Start of program
     let info = OsInfo::new();
-    let config = get_config(&info, args.get("c").unwrap().to_owned());
+    let config = Config::get_config(&info, args.get("c").unwrap().to_owned());
 
     let os_logo = args.get("os-logo").unwrap();
     let art;
@@ -30,7 +32,8 @@ fn main() {
     } else {
         art = get_ascii(&info, None, &config);
     };
-    let output = create_output(art, info);
+
+    let output = create_output(art, info, config.modules);
     println!("{}", output);
 }
 
@@ -60,8 +63,61 @@ struct Module {
     format: String,
     #[serde(rename(deserialize = "type"))]
     module_type: String,
-    text: Option<String>,
     execute: Option<String>,
+}
+
+impl Config {
+    fn get_config(info: &OsInfo, custom_configuration: (bool, Vec<String>)) -> Config {
+        let config_dir = path::Path::new(dirs::config_dir().unwrap().as_path()).join(
+            if info.os_type == "macos" {
+                "se.spamix.fetch"
+            } else {
+                "fetch"
+            },
+        );
+        let configuration_file = if custom_configuration.0 == true {
+            custom_configuration.1.get(0).unwrap().to_owned()
+        } else if config_dir.join("config.toml").try_exists().is_err() {
+            "/etc/fetch/config.toml".to_string()
+        } else {
+            config_dir.join("config.toml").to_str().unwrap().to_string()
+        };
+
+        dbg!(&configuration_file);
+
+        let default_configuration = r#"
+    [general]
+    art_directory = "erm"
+    [modules]
+    modules = []
+    definitions = [{ name = "test", key = "tesstt", format = "{1} {2}", type = "command" }]"#;
+
+        let file_content = match fs::read_to_string(configuration_file) {
+            Ok(val) => val,
+            Err(_) => {
+                println!("[warning] Config file not found! Default configuration will be used");
+                String::from(default_configuration)
+            }
+        };
+
+        let config: Config = match toml::from_str(&file_content) {
+            Ok(val) => val,
+            Err(e) => {
+                eprintln!("{}", e);
+                exit(1)
+            }
+        };
+
+        config
+    }
+    fn parse_module(info: &OsInfo, module: Module) -> (String, String) {
+        let mut output: (String, String);
+        let key = module.key;
+        let PLACEHOLDER = "PLACEHOLDER";
+        output = (key, PLACEHOLDER.to_string());
+        dbg!("");
+        output
+    }
 }
 
 // This is where you add art if you want the path to be configurable
@@ -90,12 +146,14 @@ impl Art {
     }
 }
 
+#[derive(Debug, Clone)]
 struct OsRelease {
     // Old value I might bring back
     //exists: bool,
     os_release: HashMap<String, String>,
 }
 
+#[derive(Debug, Clone)]
 struct OsInfo {
     os_release_file_content: OsRelease,
     os_type: String,
@@ -172,58 +230,17 @@ impl OsInfo {
     }
 }
 
-fn get_config(info: &OsInfo, custom_configuration: (bool, Vec<String>)) -> Config {
-    let config_dir =
-        path::Path::new(dirs::config_dir().unwrap().as_path()).join(if info.os_type == "macos" {
-            "se.spamix.fetch"
-        } else {
-            "fetch"
-        });
-    let configuration_file = if custom_configuration.0 == true {
-        custom_configuration.1.get(0).unwrap().to_owned()
-    } else if config_dir.join("config.toml").try_exists().is_err() {
-        "/etc/fetch/config.toml".to_string()
-    } else {
-        config_dir.join("config.toml").to_str().unwrap().to_string()
-    };
-
-    dbg!(&configuration_file);
-
-    let default_configuration = r#"
-    [general]
-    art_directory = "erm"
-    [modules]
-    modules = []
-    definitions = [{ name = "test", key = "tesstt", format = "{1} {2}", type = "command" }]"#;
-
-    let file_content = match fs::read_to_string(configuration_file) {
-        Ok(val) => val,
-        Err(_) => {
-            println!("[warning] Config file not found! Default configuration will be used");
-            String::from(default_configuration)
-        }
-    };
-
-    let config: Config = match toml::from_str(&file_content) {
-        Ok(val) => val,
-        Err(e) => {
-            eprintln!("{}", e);
-            exit(1)
-        }
-    };
-
-    config
-}
-
 fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> String {
-    let os_type = if custom_logo != None {
-        custom_logo.unwrap()
+    let os_type = if !custom_logo.is_none() {
+        custom_logo.as_ref().unwrap().to_owned()
     } else {
         match info.os_release_file_content.os_release.get("ID") {
             Some(val) => val.clone(),
             None => info.os_type.clone(),
         }
     };
+
+    dbg!(&os_type);
 
     let config_dir =
         path::Path::new(dirs::config_dir().unwrap().as_path()).join(if info.os_type == "macos" {
@@ -251,7 +268,7 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
         false => art_directory.join("default"),
     };
     let mut art: String;
-    if art_path.exists() {
+    if art_path.exists() && custom_logo.is_none() {
         art = fs::read_to_string(&art_path).unwrap();
         if art.is_empty() {
             eprintln!(
@@ -284,7 +301,7 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
     art
 }
 
-fn create_output(art: String, info: OsInfo) -> String {
+fn create_output(art: String, info: OsInfo, modules: Modules) -> String {
     // Preparation starts here
 
     // initialize the output string
@@ -298,7 +315,7 @@ fn create_output(art: String, info: OsInfo) -> String {
 
     // get all the fields
     let user_host = format!(" {}@{} ", info.username, info.hostname);
-    let os_release_file = info.os_release_file_content.os_release;
+    let os_release_file = info.os_release_file_content.os_release.clone();
     let os = match os_release_file.get("PRETTY_NAME") {
         Some(val) => {
             /*if os_release_file.contains_key("ID_LIKE") {
@@ -314,15 +331,22 @@ fn create_output(art: String, info: OsInfo) -> String {
     let kernel = &info.os_release;
     let shell = &info.shell;
 
-    let params = [&user_host, &os, &arch, &kernel, &shell];
-    // get longest param
-    let longest_param = params
-        .iter()
-        .max_by(|x, y| x.len().cmp(&y.len()))
-        .unwrap()
-        .chars()
-        .count();
-    let param_names = [
+    // start of module section
+    // rework THIS
+    // Vector of (key, text)
+    let mut parsed_modules: Vec<(String, String)> = vec![];
+    for module in modules.definitions {
+        parsed_modules.push(Config::parse_module(&info, module))
+    }
+    // get longest module
+    let longest_module = match parsed_modules.iter().max_by(|x, y| x.0.len().cmp(&y.0.len())) {
+        Some(val) => val.0.chars().count(),
+        None => {
+            eprintln!("Error: All modules are empty");
+            exit(1);
+        }
+    };
+    /*let module_names = [
         "",
         "OS",
         "Arch",
@@ -332,26 +356,34 @@ fn create_output(art: String, info: OsInfo) -> String {
             "Release"
         },
         "Shell",
-    ];
+    ];*/
+
+    parsed_modules.iter().enumerate().for_each(|val| {
+        dbg!(val); 
+    });
 
     // Add all fields to the vector
-    for i in 0..param_names.len() {
+    /*for i in 0..module_names.len() {
         if i == 0 {
-            tmp_fieldstrings.push(format!("┏{:━>longest_param$}┓", ""));
+            tmp_fieldstrings.push(format!("┏{:━>longest_module$}┓", ""));
         }
-        if param_names[i] != "" {
-            let numspaces = &longest_param - &param_names[i].len() - 3;
-            tmp_fieldstrings.push(format!("┃ {}:{:>numspaces$} ┃", param_names[i], params[i]));
+        // rework this
+        if module_names[i] != "" {
+            let numspaces = &longest_module - &module_names[i].len() - 3;
+            tmp_fieldstrings.push(format!(
+                "┃ {}:{:>numspaces$} ┃",
+                module_names[i], modules[i]
+            ));
         } else {
-            tmp_fieldstrings.push(format!("┃{}┃", params[i]));
+            tmp_fieldstrings.push(format!("┃{}┃", modules[i]));
             if i == 0 {
-                tmp_fieldstrings.push(format!("┣{:━>longest_param$}┫", ""))
+                tmp_fieldstrings.push(format!("┣{:━>longest_module$}┫", ""))
             }
         };
-        if i == param_names.len() - 1 {
-            tmp_fieldstrings.push(format!("┗{:━>longest_param$}┛", ""));
+        if i == module_names.len() - 1 {
+            tmp_fieldstrings.push(format!("┗{:━>longest_module$}┛", ""));
         }
-    }
+    }*/
 
     // get how long the output will be in lines
 
@@ -380,19 +412,21 @@ fn create_output(art: String, info: OsInfo) -> String {
 
     // get the longest art or field line
     let longest_art_line = if wait.0 != true {
-        tmp_fieldstrings
-            .iter()
-            .max_by(|x, y| x.len().cmp(&y.len()))
-            .unwrap()
-            .chars()
-            .count()
+        match tmp_fieldstrings.iter().max_by(|x, y| x.len().cmp(&y.len())) {
+            Some(val) => val.chars().count(),
+            None => {
+                eprintln!("Error: Field strings are empty");
+                exit(1);
+            }
+        }
     } else {
-        art_lines
-            .iter()
-            .max_by(|x, y| x.len().cmp(&y.len()))
-            .unwrap()
-            .chars()
-            .count()
+        match art_lines.iter().max_by(|x, y| x.len().cmp(&y.len())) {
+            Some(val) => val.chars().count(),
+            None => {
+                eprintln!("Error: Art file is empty");
+                exit(1);
+            }
+        }
     };
 
     // create counter

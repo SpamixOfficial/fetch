@@ -8,5 +8,5 @@ This is where I keep all the plans and ideas I have for this. See the checklist 
 - [ ] Configuration files
 - [ ] Color
 - [ ] Install tool
-- [ ] Logo files instead of hardcoded logos
+- [X] Logo files instead of hardcoded logos
 - [ ] Update tool
