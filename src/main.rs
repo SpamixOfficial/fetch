@@ -84,7 +84,7 @@ impl Art {
             "freebsd" => &self.freebsd,
             "netbsd" => &self.netbsd,
             "openbsd" => &self.openbsd,
-            _ => &None
+            _ => &None,
         };
         returnval.to_owned()
     }
