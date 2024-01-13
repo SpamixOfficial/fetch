@@ -1,5 +1,4 @@
 use dirs;
-use json;
 use nix::sys::utsname;
 use serde::Deserialize;
 use std::{collections::HashMap, env, fs, io::Read, path, process::exit, str};
@@ -39,12 +38,12 @@ fn main() {
 struct Config {
     general: General,
     modules: Modules,
+    art: Option<Art>,
 }
 
 #[derive(Deserialize, Debug)]
 struct General {
     default_art: String,
-    art_config: String,
     art_directory: Option<String>,
 }
 
@@ -63,6 +62,32 @@ struct Module {
     module_type: String,
     text: Option<String>,
     execute: Option<String>,
+}
+
+// This is where you add art if you want the path to be configurable
+#[derive(Deserialize, Debug)]
+struct Art {
+    linux: Option<String>,
+    macos: Option<String>,
+    freebsd: Option<String>,
+    netbsd: Option<String>,
+    openbsd: Option<String>,
+}
+
+impl Art {
+    fn get_art(&self, query: &String) -> Option<String> {
+        let returnval: &Option<String>;
+        // add the art and it's corresponding ID here!
+        returnval = match query.to_lowercase().as_str() {
+            "linux" => &self.linux,
+            "macos" => &self.macos,
+            "freebsd" => &self.freebsd,
+            "netbsd" => &self.netbsd,
+            "openbsd" => &self.openbsd,
+            _ => &None
+        };
+        returnval.to_owned()
+    }
 }
 
 struct OsRelease {
@@ -191,86 +216,6 @@ fn get_config(info: &OsInfo, custom_configuration: (bool, Vec<String>)) -> Confi
 }
 
 fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> String {
-    let std_linux_art = "
-  .~.
-  /V\\
- // \\\\
-/(   )\\
- ^`~'^
-";
-    let std_freebsd_art = "
-  ...      ....      ...  
- .:;&x;.$&&&&&$&$$.+$&;:. 
- .;:;$&$&&$&$&$$;&&$x;:x. 
-  .x&$$&$$$$$$$$$$x;;:X.  
-  .$$$&$Xx+;;;;;;;;:;;X.  
- .&+X&X;;;;;;;;;:::::;;x. 
- .&;;++;;;;;;;;:::;;:::$. 
- .&;;;;;;;;;:::;;;;:::$$. 
-  .+;;;;;;;::;;;;;;:;X$.  
-  ..:;;;;;;;;;;;;;++;X.   
-    .$:;;;;;;;;++++XX.    
-      .:;;;;;;;;XX;.      
-         .......          
-";
-    let std_openbsd_art = "
-
-
-             @  @@ @@              
-            @@%@@%%+#@%@ @@        
-         @@@%#---=--:=++**@@       
-       @#@*+--:+-::+::-=--*%@@@    
-     @@@@#--=-:-:--:--:=::--+@@    
-      @*:--:=-:-:-:::::-=-+*-@@    
-     %%+=-+::-.::...:::::#=+**#@   
-@%+*%@@+-+--:...:....::::==-+#*%   
- @*--+*-=:-:.:.:....:::::::+=::*@  
-   #-::-:==:+.=---:.::::::-#-+==#% 
-   @#-*#==:=-=-:=-.::--:::-:-.-#*+@
-    @#@@#:-=:==*:-:::-:-=-=-=##@   
-        *#*=:=-:--::-:-=::==#%@    
-       @@@%@+-+-==:=+--+-+*%#@     
-            #@%#*#**+***#@@@       
-            @ @ %@@@*@@@@@         
-                @   @              
-";
-    let std_netbsd_art = "
-                  ++++++  
-      +      ++++++       
-     * ++++++++++++++     
-      * +++++++++         
-       *++++++            
-       *                  
- ++ +     + ** * *   ** * 
-  +++ + +++ **** **  ** **
-   ++ +  ++ ** *   * ** **
- +  + ++  + **** * * **** 
-           *              
-            *             
-            **            
-             **           
-";
-    let std_macos_art = "                               
-          =    
-        ===    
-    =   =  =   
- ==============
--------------  
-=============  
-************** 
- **************
-  ++++++++++++ 
-    ++    ++   
-";
-    let std_unknown_art = "
- #######  
-##     ## 
-      ##  
-    ###   
-   ##     
-          
-   ##     
-";
     let os_type = if custom_logo != None {
         custom_logo.unwrap()
     } else {
@@ -287,32 +232,13 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
             "fetch"
         });
 
-    let raw_art_index_content = match fs::read_to_string(config_dir.join("art").join("index.json"))
-    {
-        Ok(val) => val,
-        Err(e) => {
-            eprintln!("Error: {e}");
-            exit(1)
-        }
-    };
-
-    let art_index = match json::parse(raw_art_index_content.as_str()) {
-        Ok(val) => val,
-        Err(e) => {
-            eprintln!("Error: {e}");
-            exit(1)
-        }
-    };
-
-    dbg!(art_index);
-
     let art_directory = match &config.general.art_directory {
-        Some(val) => val.to_owned(),
+        Some(val) => path::Path::new(val.as_str()).to_path_buf(),
         None => {
             if config_dir.join("art").exists() == true {
-                config_dir.join("art").to_str().unwrap().to_string()
+                config_dir.join("art")
             } else if path::Path::new("/etc/fetch/art/").exists() == true {
-                "/etc/fetch/art/".to_string()
+                path::Path::new("/etc/fetch/art").to_path_buf()
             } else {
                 println!("Error: No art directory is present. Please create either \"/etc/fetch/art/\" or \"{}/art\" and install the required art!", config_dir.to_str().unwrap());
                 exit(1);
@@ -320,12 +246,13 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
         }
     };
 
-    dbg!(&art_directory);
-
-    let art_path = path::Path::new(config.general.default_art.as_str());
-    let art: String;
-    if path::Path::exists(art_path) {
-        art = fs::read_to_string(art_path).unwrap();
+    let art_path = match path::Path::new(config.general.default_art.as_str()).exists() {
+        true => path::Path::new(config.general.default_art.as_str()).to_path_buf(),
+        false => art_directory.join("default"),
+    };
+    let mut art: String;
+    if art_path.exists() {
+        art = fs::read_to_string(&art_path).unwrap();
         if art.is_empty() {
             eprintln!(
                 "Error! {} is present but empty - {} may NOT be empty",
@@ -334,9 +261,25 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
             );
             exit(1);
         }
+    } else if config.art.is_some() && config.art.as_ref().unwrap().get_art(&os_type).is_some() {
+        art = config.art.as_ref().unwrap().get_art(&os_type).unwrap();
     } else {
-        art = "".to_string();
-        let paths = fs::read_dir(art_directory).unwrap();
+        art = match fs::read_to_string(&art_directory.join("unknown")) {
+            Ok(val) => val,
+            Err(_) => {
+                println!("No \"unknown\" art is present! Please install the necessary art.");
+                exit(1);
+            }
+        };
+        let paths = fs::read_dir(&art_directory).unwrap();
+        // find the correct art file
+        match paths
+            .into_iter()
+            .find(|path| path.as_ref().unwrap().file_name().to_str().unwrap() == &os_type)
+        {
+            Some(val) => art = fs::read_to_string(val.unwrap().path()).unwrap(),
+            _ => (),
+        }
     };
     art
 }
