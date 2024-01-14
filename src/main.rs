@@ -41,6 +41,7 @@ fn main() {
 struct Config {
     general: General,
     modules: Modules,
+    display: Display,
     art: Option<Art>,
 }
 
@@ -48,6 +49,11 @@ struct Config {
 struct General {
     default_art: String,
     art_directory: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+struct Display {
+    walls: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -60,7 +66,8 @@ struct Modules {
 struct Module {
     name: String,
     key: String,
-    format: String,
+    format: Option<String>,
+    walls: Option<bool>,
     #[serde(rename(deserialize = "type"))]
     module_type: String,
     execute: Option<String>,
@@ -82,8 +89,6 @@ impl Config {
         } else {
             config_dir.join("config.toml").to_str().unwrap().to_string()
         };
-
-        dbg!(&configuration_file);
 
         let default_configuration = r#"
     [general]
@@ -111,23 +116,76 @@ impl Config {
         config
     }
     fn parse_module(info: &OsInfo, module: Module) -> (String, String) {
-        let mut output: (String, String);
+        let name = &module.name;
 
-        let format: String;
-        
-        // format string parts 
+        let os_release = info.os_release_file_content.os_release.clone();
+
+        // format values
         let mut formats: Vec<String> = vec![];
+        
+        let mut value: String = String::new();
 
-        for part in module.format.split(' ') {
-            dbg!(part);
-        }
+
+        // TODO: Add more modules
+        match module.module_type.as_str() {
+            "os" => {
+                formats.push(match os_release.get("PRETTY_NAME") {
+                    Some(val) => val.clone(),
+                    None => info.os_type.clone(),
+                });
+                formats.push(match os_release.get("VERSION_ID") {
+                    Some(val) => val.clone(),
+                    None => "".to_string(),
+                });
+                formats.push(info.os_arch.clone());
+            },
+            &_ => {
+                eprintln!("Module {} is non-existant", module.module_type);
+                exit(1);
+            }
+        };
+
+        dbg!(&formats);
+
+        match module.format {
+            Some(_) => {
+                for part in module.format.as_ref().unwrap().split_inclusive('}') {
+                    // find where the format part starts
+                    // If this fails, just skip it since there's obviously no format part
+                    let start_index = match part.find("{") {
+                        Some(val) => val,
+                        None => continue
+                    };
+                    // Get the part that isnt a format
+                    let rest_part = &part[..start_index];
+                    // get what index of the module values the format requests
+                    let index = match &part[start_index+1..start_index+2].to_string().parse::<usize>() {
+                        Ok(val) => val.clone()-1,
+                        Err(_) => {eprintln!("Failed to get index format in string:\n{}", part); exit(1);}
+                    };
+                    
+                    if index >= formats.len() {
+                        eprintln!("Error! Format index is bigger than the module returns\n>>>\"{}\"<<<", part);
+                        exit(1);
+                    }
+                    
+                    // empty values are skipped
+                    let output = if !formats[index].is_empty() {
+                        format!("{}{}", rest_part, formats[index])
+                    } else {
+                        "".to_string()
+                    };
+                    value.push_str(&output);
+
+                }
+            }
+            None => {
+                formats.into_iter().for_each(|val| {value.push_str(val.as_str()); if !val.is_empty(){ value.push(' ')}});
+            },
+        };
 
         let key = &module.key;
-        let PLACEHOLDER = "PLACEHOLDER";
-        output = (key.to_string(), PLACEHOLDER.to_string());
-        dbg!(&info);
-        dbg!(&module);
-        output
+        (key.to_string(), value)
     }
 }
 
@@ -251,8 +309,6 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
         }
     };
 
-    dbg!(&os_type);
-
     let config_dir =
         path::Path::new(dirs::config_dir().unwrap().as_path()).join(if info.os_type == "macos" {
             "se.spamix.fetch"
@@ -350,7 +406,10 @@ fn create_output(art: String, info: OsInfo, modules: Modules) -> String {
         parsed_modules.push(Config::parse_module(&info, module))
     }
     // get longest module
-    let longest_module = match parsed_modules.iter().max_by(|x, y| x.0.len().cmp(&y.0.len())) {
+    let longest_module = match parsed_modules
+        .iter()
+        .max_by(|x, y| x.0.len().cmp(&y.0.len()))
+    {
         Some(val) => val.0.chars().count(),
         None => {
             eprintln!("Error: All modules are empty");
@@ -370,7 +429,7 @@ fn create_output(art: String, info: OsInfo, modules: Modules) -> String {
     ];*/
 
     parsed_modules.iter().enumerate().for_each(|val| {
-        dbg!(val); 
+        dbg!(val);
     });
 
     // Add all fields to the vector
