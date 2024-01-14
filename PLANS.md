@@ -10,3 +10,5 @@ This is where I keep all the plans and ideas I have for this. See the checklist 
 - [ ] Install tool
 - [X] Logo files instead of hardcoded logos
 - [ ] Update tool
+- [ ] Fix MacOS "OsRelease"
+- [ ] Rebrand to bluefetch

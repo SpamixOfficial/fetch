@@ -112,10 +112,21 @@ impl Config {
     }
     fn parse_module(info: &OsInfo, module: Module) -> (String, String) {
         let mut output: (String, String);
-        let key = module.key;
+
+        let format: String;
+        
+        // format string parts 
+        let mut formats: Vec<String> = vec![];
+
+        for part in module.format.split(' ') {
+            dbg!(part);
+        }
+
+        let key = &module.key;
         let PLACEHOLDER = "PLACEHOLDER";
-        output = (key, PLACEHOLDER.to_string());
-        dbg!("");
+        output = (key.to_string(), PLACEHOLDER.to_string());
+        dbg!(&info);
+        dbg!(&module);
         output
     }
 }
