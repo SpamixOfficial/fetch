@@ -1,7 +1,7 @@
 use dirs;
 use nix::sys::utsname;
 use serde::Deserialize;
-use std::{collections::HashMap, env, fs, io::Read, path, process::exit, str};
+use std::{collections::HashMap, env, fs, io::Read, path, process::{exit, Command}, str};
 use taap;
 use toml;
 
@@ -70,7 +70,7 @@ struct Module {
     walls: Option<bool>,
     #[serde(rename(deserialize = "type"))]
     module_type: String,
-    execute: Option<String>,
+    execute: Option<Vec<String>>,
 }
 
 impl Config {
@@ -124,10 +124,11 @@ impl Config {
         let mut formats: Vec<String> = vec![];
         
         let mut value: String = String::new();
-
+        
+        let module_type = module.module_type.clone();
 
         // TODO: Add more modules
-        match module.module_type.as_str() {
+        match module_type.as_str() {
             "os" => {
                 formats.push(match os_release.get("PRETTY_NAME") {
                     Some(val) => val.clone(),
@@ -139,14 +140,37 @@ impl Config {
                 });
                 formats.push(info.os_arch.clone());
             },
+            "custom" => {
+                formats.push(match module.format {
+                    Some(val) => {
+                        val.clone()
+                    },
+                    None => {
+                        if module.execute.is_none() {
+                            eprintln!("Module \"custom\" may NOT have an empty format variable if variable execute isn't used!"); 
+                            exit(1);
+                        } else {
+                            let execute_options = module.execute.unwrap().clone();
+                            let mut execute_command_output = match Command::new(execute_options.get(0)).args(execute_options[1..]).output() {
+                                Ok(val) => String::from_utf8_lossy(&val.stdout),
+                                Err(e) => {eprintln!("Error: Failed to execute: \"{}\"", execute_options.join(' ')); exit(1);}
+                            };
+                        }
+                    }
+                })
+            },
             &_ => {
-                eprintln!("Module {} is non-existant", module.module_type);
+                eprintln!("Module {} is non-existant", module_type);
                 exit(1);
             }
         };
 
         dbg!(&formats);
-
+        match module_type.as_str() {
+            "custom" => {
+                val.push_str(&output
+            },
+            
         match module.format {
             Some(_) => {
                 for part in module.format.as_ref().unwrap().split_inclusive('}') {
@@ -178,7 +202,7 @@ impl Config {
                     value.push_str(&output);
 
                 }
-            }
+            },
             None => {
                 formats.into_iter().for_each(|val| {value.push_str(val.as_str()); if !val.is_empty(){ value.push(' ')}});
             },
