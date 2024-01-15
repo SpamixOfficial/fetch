@@ -1,7 +1,14 @@
 use dirs;
 use nix::sys::utsname;
 use serde::Deserialize;
-use std::{collections::HashMap, env, fs, io::Read, path, process::{exit, Command}, str};
+use std::{
+    collections::HashMap,
+    env, fs,
+    io::Read,
+    path,
+    process::{exit, Command},
+    str,
+};
 use taap;
 use toml;
 
@@ -122,9 +129,9 @@ impl Config {
 
         // format values
         let mut formats: Vec<String> = vec![];
-        
+
         let mut value: String = String::new();
-        
+
         let module_type = module.module_type.clone();
 
         // TODO: Add more modules
@@ -141,7 +148,7 @@ impl Config {
                 formats.push(info.os_arch.clone());
             },
             "custom" => {
-                formats.push(match module.format {
+                value = match module.format.as_ref() {
                     Some(val) => {
                         val.clone()
                     },
@@ -151,13 +158,14 @@ impl Config {
                             exit(1);
                         } else {
                             let execute_options = module.execute.unwrap().clone();
-                            let mut execute_command_output = match Command::new(execute_options.get(0)).args(execute_options[1..]).output() {
-                                Ok(val) => String::from_utf8_lossy(&val.stdout),
-                                Err(e) => {eprintln!("Error: Failed to execute: \"{}\"", execute_options.join(' ')); exit(1);}
+                            let execute_command_output = match Command::new(execute_options.get(0).unwrap()).args(execute_options[1..].iter()).output() {
+                                Ok(val) => val.stdout,
+                                Err(e) => {eprintln!("Error: Failed to execute: \"{}\"\nCommand Error: {}", execute_options.join(" "), e); exit(1);}
                             };
+                            String::from_utf8_lossy(&execute_command_output).to_string()
                         }
                     }
-                })
+                }
             },
             &_ => {
                 eprintln!("Module {} is non-existant", module_type);
@@ -165,49 +173,55 @@ impl Config {
             }
         };
 
-        dbg!(&formats);
-        match module_type.as_str() {
-            "custom" => {
-                val.push_str(&output
-            },
-            
-        match module.format {
-            Some(_) => {
-                for part in module.format.as_ref().unwrap().split_inclusive('}') {
-                    // find where the format part starts
-                    // If this fails, just skip it since there's obviously no format part
-                    let start_index = match part.find("{") {
-                        Some(val) => val,
-                        None => continue
-                    };
-                    // Get the part that isnt a format
-                    let rest_part = &part[..start_index];
-                    // get what index of the module values the format requests
-                    let index = match &part[start_index+1..start_index+2].to_string().parse::<usize>() {
-                        Ok(val) => val.clone()-1,
-                        Err(_) => {eprintln!("Failed to get index format in string:\n{}", part); exit(1);}
-                    };
-                    
-                    if index >= formats.len() {
-                        eprintln!("Error! Format index is bigger than the module returns\n>>>\"{}\"<<<", part);
-                        exit(1);
+        // Parse the format string, except if the module type is custom
+        if module_type.as_str() != "custom" {
+            match module.format {
+                Some(_) => {
+                    for part in module.format.as_ref().unwrap().split_inclusive('}') {
+                        // find where the format part starts
+                        // If this fails, just skip it since there's obviously no format part
+                        let start_index = match part.find("{") {
+                            Some(val) => val,
+                            None => continue,
+                        };
+                        // Get the part that isnt a format
+                        let rest_part = &part[..start_index];
+                        // get what index of the module values the format requests
+                        let index = match &part[start_index + 1..start_index + 2]
+                            .to_string()
+                            .parse::<usize>()
+                        {
+                            Ok(val) => val.clone() - 1,
+                            Err(_) => {
+                                eprintln!("Failed to get index format in string:\n{}", part);
+                                exit(1);
+                            }
+                        };
+
+                        if index >= formats.len() {
+                            eprintln!("Error! Format index is bigger than the module returns\n>>>\"{}\"<<<", part);
+                            exit(1);
+                        }
+
+                        // empty values are skipped
+                        let output = if !formats[index].is_empty() {
+                            format!("{}{}", rest_part, formats[index])
+                        } else {
+                            "".to_string()
+                        };
+                        value.push_str(&output);
                     }
-                    
-                    // empty values are skipped
-                    let output = if !formats[index].is_empty() {
-                        format!("{}{}", rest_part, formats[index])
-                    } else {
-                        "".to_string()
-                    };
-                    value.push_str(&output);
-
                 }
-            },
-            None => {
-                formats.into_iter().for_each(|val| {value.push_str(val.as_str()); if !val.is_empty(){ value.push(' ')}});
-            },
-        };
-
+                None => {
+                    formats.into_iter().for_each(|val| {
+                        value.push_str(val.as_str());
+                        if !val.is_empty() {
+                            value.push(' ')
+                        }
+                    });
+                }
+            };
+        }
         let key = &module.key;
         (key.to_string(), value)
     }
