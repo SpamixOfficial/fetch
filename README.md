@@ -125,6 +125,16 @@ Exit Statuses:
 SpamixOfficial 2024
 ```
 
+## Configuration
+### Modules
+Current implemented modules are:
+| Name              | Type     | Format                          |
+|-------------------|----------|---------------------------------|
+| Operating System  | os       | {PRETTY_NAME}{VERSION_ID}{Arch} |
+| Kernel            | kernel   | {kernel}                        |
+| User and Hostname | userhost | {user}{hostname}                |
+| Shell             | shell    | {shell_path}                    |
+
 ## Adding your own logo
 Since only a few logos are included by default, no linux distro logos are included.
 

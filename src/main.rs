@@ -40,7 +40,7 @@ fn main() {
         art = get_ascii(&info, None, &config);
     };
 
-    let output = create_output(art, info, config.modules);
+    let output = create_output(art, info, config.modules, config.display);
     println!("{}", output);
 }
 
@@ -60,7 +60,13 @@ struct General {
 
 #[derive(Deserialize, Debug)]
 struct Display {
+    textfield: DisplayTextField
+}
+
+#[derive(Deserialize, Debug)]
+struct DisplayTextField {
     walls: Option<String>,
+    gap: Option<usize>
 }
 
 #[derive(Deserialize, Debug)]
@@ -72,7 +78,7 @@ struct Modules {
 #[derive(Deserialize, Debug)]
 struct Module {
     name: String,
-    key: String,
+    key: Option<String>,
     format: Option<String>,
     walls: Option<bool>,
     #[serde(rename(deserialize = "type"))]
@@ -122,11 +128,11 @@ impl Config {
 
         config
     }
-    fn parse_module(info: &OsInfo, module: Module) -> (String, String) {
+    fn parse_module(info: &OsInfo, module: Module) -> (String, (String, String)) {
         let name = &module.name;
 
         let os_release = info.os_release_file_content.os_release.clone();
-
+         
         // format values
         let mut formats: Vec<String> = vec![];
 
@@ -136,6 +142,12 @@ impl Config {
 
         // TODO: Add more modules
         match module_type.as_str() {
+            "shell" => {formats.push(info.shell.clone())},
+            "kernel" => {formats.push(info.os_release.clone())},
+            "userhost" => {
+                formats.push(info.username.clone());
+                formats.push(info.hostname.clone());
+            },
             "os" => {
                 formats.push(match os_release.get("PRETTY_NAME") {
                     Some(val) => val.clone(),
@@ -222,8 +234,11 @@ impl Config {
                 }
             };
         }
-        let key = &module.key;
-        (key.to_string(), value)
+        let key = match module.key {
+            Some(val) => val,
+            None => "".to_string()
+        };
+        (name.to_owned(), (key.to_string(), value))
     }
 }
 
@@ -406,7 +421,7 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
     art
 }
 
-fn create_output(art: String, info: OsInfo, modules: Modules) -> String {
+fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) -> String {
     // Preparation starts here
 
     // initialize the output string
@@ -421,27 +436,16 @@ fn create_output(art: String, info: OsInfo, modules: Modules) -> String {
     // get all the fields
     let user_host = format!(" {}@{} ", info.username, info.hostname);
     let os_release_file = info.os_release_file_content.os_release.clone();
-    let os = match os_release_file.get("PRETTY_NAME") {
-        Some(val) => {
-            /*if os_release_file.contains_key("ID_LIKE") {
-                format!("{}({}-like)", val, os_release_file.get("ID_LIKE").unwrap())
-            } else {
-                val.clone()
-            }*/
-            val.clone()
-        }
-        None => info.os_type.clone(),
-    };
-    let arch = &info.os_arch;
     let kernel = &info.os_release;
     let shell = &info.shell;
 
     // start of module section
     // rework THIS
     // Vector of (key, text)
-    let mut parsed_modules: Vec<(String, String)> = vec![];
+    let mut parsed_modules: HashMap<String, (String, String)> = HashMap::new();
     for module in modules.definitions {
-        parsed_modules.push(Config::parse_module(&info, module))
+        let parsed = Config::parse_module(&info, module);
+        parsed_modules.insert(parsed.0, (parsed.1.0, parsed.1.1));
     }
     // get longest module
     let longest_module = match parsed_modules
@@ -466,8 +470,16 @@ fn create_output(art: String, info: OsInfo, modules: Modules) -> String {
         "Shell",
     ];*/
 
-    parsed_modules.iter().enumerate().for_each(|val| {
-        dbg!(val);
+    modules.modules.iter().for_each(|val| {
+        let module = match parsed_modules.get(val) {
+            Some(v) => v,
+            None => {eprintln!("Error! Module \"{}\" is undefined", val); exit(1);}
+        };
+        let numspaces = &longest_module - &module.0.len();
+        tmp_fieldstrings.push(format!(
+                "{}:{:>numspaces$}",
+                module.0, module.1
+            )); 
     });
 
     // Add all fields to the vector
