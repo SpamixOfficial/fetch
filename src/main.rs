@@ -60,13 +60,14 @@ struct General {
 
 #[derive(Deserialize, Debug)]
 struct Display {
-    textfield: DisplayTextField
+    textfield: DisplayTextField,
 }
 
 #[derive(Deserialize, Debug)]
 struct DisplayTextField {
+    separator: Option<String>,
     walls: Option<String>,
-    gap: Option<usize>
+    gap: Option<usize>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -132,7 +133,7 @@ impl Config {
         let name = &module.name;
 
         let os_release = info.os_release_file_content.os_release.clone();
-         
+
         // format values
         let mut formats: Vec<String> = vec![];
 
@@ -142,12 +143,12 @@ impl Config {
 
         // TODO: Add more modules
         match module_type.as_str() {
-            "shell" => {formats.push(info.shell.clone())},
-            "kernel" => {formats.push(info.os_release.clone())},
+            "shell" => formats.push(info.shell.clone()),
+            "kernel" => formats.push(info.os_release.clone()),
             "userhost" => {
                 formats.push(info.username.clone());
                 formats.push(info.hostname.clone());
-            },
+            }
             "os" => {
                 formats.push(match os_release.get("PRETTY_NAME") {
                     Some(val) => val.clone(),
@@ -158,27 +159,36 @@ impl Config {
                     None => "".to_string(),
                 });
                 formats.push(info.os_arch.clone());
-            },
+            }
             "custom" => {
                 value = match module.format.as_ref() {
-                    Some(val) => {
-                        val.clone()
-                    },
+                    Some(val) => val.clone(),
                     None => {
                         if module.execute.is_none() {
-                            eprintln!("Module \"custom\" may NOT have an empty format variable if variable execute isn't used!"); 
+                            eprintln!("Module \"custom\" may NOT have an empty format variable if variable execute isn't used!");
                             exit(1);
                         } else {
                             let execute_options = module.execute.unwrap().clone();
-                            let execute_command_output = match Command::new(execute_options.get(0).unwrap()).args(execute_options[1..].iter()).output() {
-                                Ok(val) => val.stdout,
-                                Err(e) => {eprintln!("Error: Failed to execute: \"{}\"\nCommand Error: {}", execute_options.join(" "), e); exit(1);}
-                            };
+                            let execute_command_output =
+                                match Command::new(execute_options.get(0).unwrap())
+                                    .args(execute_options[1..].iter())
+                                    .output()
+                                {
+                                    Ok(val) => val.stdout,
+                                    Err(e) => {
+                                        eprintln!(
+                                            "Error: Failed to execute: \"{}\"\nCommand Error: {}",
+                                            execute_options.join(" "),
+                                            e
+                                        );
+                                        exit(1);
+                                    }
+                                };
                             String::from_utf8_lossy(&execute_command_output).to_string()
                         }
                     }
                 }
-            },
+            }
             &_ => {
                 eprintln!("Module {} is non-existant", module_type);
                 exit(1);
@@ -227,7 +237,7 @@ impl Config {
                 None => {
                     formats.into_iter().for_each(|val| {
                         value.push_str(val.as_str());
-                        if !val.is_empty() {
+                        if !val.is_empty(){
                             value.push(' ')
                         }
                     });
@@ -236,7 +246,7 @@ impl Config {
         }
         let key = match module.key {
             Some(val) => val,
-            None => "".to_string()
+            None => "".to_string(),
         };
         (name.to_owned(), (key.to_string(), value))
     }
@@ -432,32 +442,26 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
 
     // get all art lines
     let art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect();
-
-    // get all the fields
-    let user_host = format!(" {}@{} ", info.username, info.hostname);
-    let os_release_file = info.os_release_file_content.os_release.clone();
-    let kernel = &info.os_release;
-    let shell = &info.shell;
-
     // start of module section
-    // rework THIS
-    // Vector of (key, text)
+
     let mut parsed_modules: HashMap<String, (String, String)> = HashMap::new();
     for module in modules.definitions {
         let parsed = Config::parse_module(&info, module);
-        parsed_modules.insert(parsed.0, (parsed.1.0, parsed.1.1));
+        parsed_modules.insert(parsed.0, (parsed.1 .0, parsed.1 .1));
     }
     // get longest module
     let longest_module = match parsed_modules
         .iter()
-        .max_by(|x, y| x.0.len().cmp(&y.0.len()))
+        .max_by(|x, y| {
+            (x.1.0.len() + x.1.1.len()).cmp(&(y.1.0.len() + y.1.1.len()))})
     {
-        Some(val) => val.0.chars().count(),
+        Some(val) => val.1.0.len() + val.1.1.len(),
         None => {
             eprintln!("Error: All modules are empty");
             exit(1);
         }
     };
+    dbg!(&longest_module);
     /*let module_names = [
         "",
         "OS",
@@ -470,16 +474,29 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
         "Shell",
     ];*/
 
+    let separator = display.textfield.separator.unwrap_or(":".to_string());
+
     modules.modules.iter().for_each(|val| {
         let module = match parsed_modules.get(val) {
             Some(v) => v,
-            None => {eprintln!("Error! Module \"{}\" is undefined", val); exit(1);}
+            None => {
+                eprintln!("Error! Module \"{}\" is undefined", val);
+                exit(1);
+            }
         };
-        let numspaces = &longest_module - &module.0.len();
+        dbg!(&module);
+        // get number of spaces
+        let numspaces = match display.textfield.gap {
+            Some(val) => val - module.0.len() - separator.len(),
+            None => &longest_module - module.0.len() - separator.len(),
+        };
         tmp_fieldstrings.push(format!(
-                "{}:{:>numspaces$}",
-                module.0, module.1
-            )); 
+            "{}{}{:>spaces$}",
+            module.0,
+            if !module.0.is_empty() { &separator } else { "" },
+            module.1,
+            spaces = if !module.0.is_empty() { numspaces } else { 0 }
+        ));
     });
 
     // Add all fields to the vector
