@@ -61,6 +61,7 @@ struct General {
 #[derive(Deserialize, Debug)]
 struct Display {
     textfield: DisplayTextField,
+    gap: Option<usize>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -237,7 +238,7 @@ impl Config {
                 None => {
                     formats.into_iter().for_each(|val| {
                         value.push_str(val.as_str());
-                        if !val.is_empty(){
+                        if !val.is_empty() {
                             value.push(' ')
                         }
                     });
@@ -440,8 +441,20 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
     // initialize temporary "fields strings"
     let mut tmp_fieldstrings: Vec<String> = vec![];
 
-    // get all art lines
-    let art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect();
+    // get all art lines and add necessary spaces
+    let mut art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect();
+
+    match art_lines.iter().max_by(|x, y| x.len().cmp(&y.len())) {
+        Some(val) => {
+            let longest_item = val.chars().count();
+            art_lines.iter_mut().for_each(|x| *x = format!("{:<spaces$}", x, spaces = longest_item-x.chars().count()).as_str());
+        },
+        None => {
+            eprintln!("Error: Art file is empty");
+            exit(1);
+        }
+    }
+
     // start of module section
 
     let mut parsed_modules: HashMap<String, (String, String)> = HashMap::new();
@@ -452,10 +465,9 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
     // get longest module
     let longest_module = match parsed_modules
         .iter()
-        .max_by(|x, y| {
-            (x.1.0.len() + x.1.1.len()).cmp(&(y.1.0.len() + y.1.1.len()))})
+        .max_by(|x, y| (x.1 .0.len() + x.1 .1.len()).cmp(&(y.1 .0.len() + y.1 .1.len())))
     {
-        Some(val) => val.1.0.len() + val.1.1.len(),
+        Some(val) => val.1 .0.len() + val.1 .1.len(),
         None => {
             eprintln!("Error: All modules are empty");
             exit(1);
