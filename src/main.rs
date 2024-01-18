@@ -130,7 +130,7 @@ impl Config {
 
         config
     }
-    fn parse_module(info: &OsInfo, module: Module) -> (String, (String, String)) {
+    fn parse_module(info: &OsInfo, module: Module, max_field_length: usize) -> (String, (String, String)) {
         let name = &module.name;
 
         let os_release = info.os_release_file_content.os_release.clone();
@@ -160,6 +160,9 @@ impl Config {
                     None => "".to_string(),
                 });
                 formats.push(info.os_arch.clone());
+            }
+            "separator" => {
+                formats.push()
             }
             "custom" => {
                 value = match module.format.as_ref() {
@@ -236,9 +239,9 @@ impl Config {
                     }
                 }
                 None => {
-                    formats.into_iter().for_each(|val| {
+                    formats.iter().for_each(|val| {
                         value.push_str(val.as_str());
-                        if !val.is_empty() {
+                        if !val.is_empty() && formats.len() > 1{
                             value.push(' ')
                         }
                     });
@@ -444,16 +447,19 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
     // get all art lines and add necessary spaces
     let mut art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect();
 
-    match art_lines.iter().max_by(|x, y| x.len().cmp(&y.len())) {
+    let mut tmp_art_lines: Vec<String> = vec![];
+
+    art_lines = match art_lines.iter().max_by(|x, y| x.len().cmp(&y.len())) {
         Some(val) => {
             let longest_item = val.chars().count();
-            art_lines.iter_mut().for_each(|x| *x = format!("{:<spaces$}", x, spaces = longest_item-x.chars().count()).as_str());
+            art_lines.iter().for_each(|x| tmp_art_lines.push(format!("{:<longest_item$}", x)));
+            tmp_art_lines.iter().map(|s| s.as_str()).collect::<Vec<_>>()
         },
         None => {
             eprintln!("Error: Art file is empty");
             exit(1);
         }
-    }
+    };
 
     // start of module section
 
@@ -473,7 +479,7 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
             exit(1);
         }
     };
-    dbg!(&longest_module);
+
     /*let module_names = [
         "",
         "OS",
