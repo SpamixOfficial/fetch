@@ -26,7 +26,7 @@ fn main() {
     //arguments.add_option('l', "list-art", "0", Some("List all known available art"));
     arguments.add_exit_status(0, "Everything went well");
     arguments.add_exit_status(1, "An error occurred");
-    let args = arguments.parse_args();
+    let args = arguments.parse_args(None);
 
     // Start of program
     let info = OsInfo::new();
@@ -130,7 +130,7 @@ impl Config {
 
         config
     }
-    fn parse_module(info: &OsInfo, module: Module, max_field_length: usize) -> (String, (String, String)) {
+    fn parse_module(info: &OsInfo, module: Module) -> (String, (String, String, String)) {
         let name = &module.name;
 
         let os_release = info.os_release_file_content.os_release.clone();
@@ -252,7 +252,7 @@ impl Config {
             Some(val) => val,
             None => "".to_string(),
         };
-        (name.to_owned(), (key.to_string(), value))
+        (name.to_owned(), (key.to_string(), value, module_type))
     }
 }
 
