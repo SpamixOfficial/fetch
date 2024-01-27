@@ -162,7 +162,7 @@ impl Config {
                 formats.push(info.os_arch.clone());
             }
             "separator" => {
-                formats.push()
+                formats.push("-".to_string());
             }
             "custom" => {
                 value = match module.format.as_ref() {
@@ -506,7 +506,7 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
         // get number of spaces
         let numspaces = match display.textfield.gap {
             Some(val) => val - module.0.len() - separator.len(),
-            None => &longest_module - module.0.len() - separator.len(),
+            None => &longest_module - module.0.len(),
         };
         tmp_fieldstrings.push(format!(
             "{}{}{:>spaces$}",
