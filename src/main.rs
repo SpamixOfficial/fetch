@@ -106,11 +106,15 @@ impl Config {
         };
 
         let default_configuration = r#"
-    [general]
-    art_directory = "erm"
-    [modules]
-    modules = []
-    definitions = [{ name = "test", key = "tesstt", format = "{1} {2}", type = "command" }]"#;
+[general]
+default_art = "~/.config/fetch/art/default"
+
+[display]
+[display.textfield]
+[modules]
+modules = ["shell", "os"]
+
+definitions = [{name = "shell", key = "SHELL", type = "shell"},{name = "userhost", format = "{1}@{2}", type = "userhost"},{name = "os", key = "OS", type = "os"}]"#;
 
         let file_content = match fs::read_to_string(configuration_file) {
             Ok(val) => val,
@@ -239,9 +243,10 @@ impl Config {
                     }
                 }
                 None => {
-                    formats.iter().for_each(|val| {
-                        value.push_str(val.as_str());
-                        if !val.is_empty() && formats.len() > 1{
+                    formats.iter().enumerate().for_each(|val| {
+                        value.push_str(val.1.as_str());
+                        dbg!(&val);
+                        if !val.1.is_empty() && val.0 != formats.len()-1{
                             value.push(' ')
                         }
                     });
