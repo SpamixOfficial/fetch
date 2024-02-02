@@ -15,11 +15,30 @@ First git clone and enter the repository:
 $ git clone https://gitlab.com/SpamixOfficial/fetch && cd fetch
 ```
 
-There's 3 ways to install fetch:
+There's multiple ways to install fetch:
 
-### Option 1 (The preferred way)
 
-Use this if you want to use `cargo make`
+### Manually
+
+Use this if neither of the options before worked for you
+
+
+Prerequisites:
+
+- Rust version 2021
+- Cargo
+
+For a system-wide install (requires sudo)
+```
+# cargo build --release && sudo cp ./target/release/fetch /usr/local/bin/fetch
+```
+For an user install
+``` 
+$ cargo build --release && cp ./target/release/fetch ~/.local/bin/fetch
+```
+You may change the install paths above to a path in your PATH variable
+
+### Using cargo make 
 
 Prerequisites:
 
@@ -36,15 +55,16 @@ For an user install
 $ cargo make install-user
 ```
 
-### Option 2
+### Using make (NEEDS BASH)
 
-Use this if you don't want to use `cargo make`, but you can use `make` instead
+Use this if you want to use `make` 
 
 Prerequisites:
 
 - Rust version 2021
 - Cargo
 - make
+- bash
 
 For a system-wide install (requires sudo)
 
@@ -62,25 +82,6 @@ Default install location is `~/.local/bin/`
 
 ```
 $ make install INSTALL_MODE="USER"
-```
-
-### Option 3
-
-Use this if neither of the options before worked for you
-
-
-Prerequisites:
-
-- Rust version 2021
-- Cargo
-
-For a system-wide install (requires sudo)
-```
-# cargo build --release && sudo cp ./target/release/fetch /usr/local/bin/fetch
-```
-For an user install
-``` 
-$ cargo build --release && cp ./target/release/fetch ~/.local/bin/fetch
 ```
 
 ## Usage
