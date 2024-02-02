@@ -333,7 +333,7 @@ impl OsRelease {
                     .splitn(2, "=")
                     .map(|value| value.replacen("\"", "", 2))
                     .collect();
-                // If less or more than 2 values are present, we can assume something is wrong with that
+                // If less than 2 values are present, we can assume something is wrong with that
                 // line and skip it
                 if values.len() == 2 {
                     os_release_values.insert(
@@ -468,24 +468,17 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
 
     // start of module section
 
-    dbg!(&modules.modules);
     let mut parsed_modules: HashMap<String, (String, String)> = HashMap::new();
     for module in modules.definitions {
         let parsed = Config::parse_module(&info, module);
-        dbg!(&parsed.0);
-        if modules.modules.contains(&parsed.0) {
-            parsed_modules.insert(parsed.0, (parsed.1 .0, parsed.1 .1));
-        }
+        parsed_modules.insert(parsed.0, (parsed.1 .0, parsed.1 .1));
     }
-    
-    let separator = display.textfield.separator.unwrap_or(":".to_string());
-
     // get longest module
     let longest_module = match parsed_modules
         .iter()
         .max_by(|x, y| (x.1 .0.len() + x.1 .1.len()).cmp(&(y.1 .0.len() + y.1 .1.len())))
     {
-        Some(val) => val.1 .0.len() + val.1 .1.len() - separator.len(),
+        Some(val) => val.1 .0.len() + val.1 .1.len(),
         None => {
             eprintln!("Error: All modules are empty");
             exit(1);
@@ -503,7 +496,9 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
         },
         "Shell",
     ];*/
- 
+
+    let separator = display.textfield.separator.unwrap_or(":".to_string());
+
     modules.modules.iter().for_each(|val| {
         let module = match parsed_modules.get(val) {
             Some(v) => v,
@@ -514,9 +509,8 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
         };
         dbg!(&module);
         // get number of spaces
-        dbg!(&module.0.len());
         let numspaces = match display.textfield.gap {
-            Some(val) => val + module.1.len(),
+            Some(val) => val - module.0.len() - separator.len(),
             None => &longest_module - module.0.len(),
         };
         tmp_fieldstrings.push(format!(
