@@ -9,6 +9,10 @@ use std::{
     process::{exit, Command},
     str,
 };
+
+#[cfg(target_os = "macos")]
+use plist::Value;
+
 use taap;
 use toml;
 
@@ -241,7 +245,7 @@ impl Config {
                 None => {
                     formats.iter().for_each(|val| {
                         value.push_str(val.as_str());
-                        if !val.is_empty() && formats.len() > 1{
+                        if !val.is_empty() && formats.len() > 1 {
                             value.push(' ')
                         }
                     });
@@ -304,14 +308,19 @@ impl OsRelease {
     fn new() -> OsRelease {
         let mut os_release_values: HashMap<String, String> = HashMap::new();
         // check if the file exists
-        let os_release_file_path = path::Path::new("/etc/os-release");
+        let os_release_file_path = if !cfg!(target_os = "macos") {
+            path::Path::new("/etc/os-release")
+        } else {
+            path::Path::new("/System/Library/CoreServices/SystemVersion.plist")
+            //path::Path::new("demo.plist")
+        };
         let os_release_file_exists = match path::Path::try_exists(os_release_file_path) {
             Ok(_) => true,
             Err(_) => false,
         };
 
         // If file exists, read the contents
-        if os_release_file_exists {
+        if os_release_file_exists && !cfg!(target_os = "macos") {
             // Read the file to the variable raw_file_content
             let mut raw_file_content = String::new();
             let mut raw_file = fs::File::open(os_release_file_path).unwrap();
@@ -337,6 +346,30 @@ impl OsRelease {
                     );
                 };
             });
+        } else if os_release_file_exists && cfg!(target_os = "macos") {
+            // Read the file to the variable raw_file_content
+            let mut raw_file_content = String::new();
+            let mut raw_file = fs::File::open(os_release_file_path).unwrap();
+            raw_file.read_to_string(&mut raw_file_content).unwrap();
+
+            // Split file content into lines and convert to String
+            let raw_file_lines: Vec<String> = raw_file_content
+                .split("<key>")
+                .map(|value| {
+                    value.replace("\t", "").replace("\n", "").to_string()
+                })
+                .collect();
+
+            // Parse and insert every line into hashmap
+            raw_file_lines.iter().for_each(|line| {
+                dbg!(&line);
+                if line.starts_with("<key>") {
+                    dbg!(line);
+                }
+            });
+        } else {
+            eprintln!("No os-release-type file present. Exiting with code 1");
+            exit(1);
         };
         OsRelease {
             //exists: os_release_file_exists,
@@ -358,7 +391,7 @@ impl OsInfo {
             },
             username: match env::var_os("LOGNAME") {
                 Some(v) => v.into_string().unwrap(),
-                None => String::from("unknown"),
+                None => String::from("Unknown"),
             },
             os_release: String::from(uname.release().to_str().unwrap()),
             hostname: String::from(uname.nodename().to_str().unwrap()),
@@ -452,9 +485,11 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
     art_lines = match art_lines.iter().max_by(|x, y| x.len().cmp(&y.len())) {
         Some(val) => {
             let longest_item = val.chars().count();
-            art_lines.iter().for_each(|x| tmp_art_lines.push(format!("{:<longest_item$}", x)));
+            art_lines
+                .iter()
+                .for_each(|x| tmp_art_lines.push(format!("{:<longest_item$}", x)));
             tmp_art_lines.iter().map(|s| s.as_str()).collect::<Vec<_>>()
-        },
+        }
         None => {
             eprintln!("Error: Art file is empty");
             exit(1);
@@ -472,7 +507,7 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
             parsed_modules.insert(parsed.0, (parsed.1 .0, parsed.1 .1));
         }
     }
-    
+
     let separator = display.textfield.separator.unwrap_or(":".to_string());
 
     // get longest module
@@ -498,7 +533,7 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
         },
         "Shell",
     ];*/
- 
+
     modules.modules.iter().for_each(|val| {
         let module = match parsed_modules.get(val) {
             Some(v) => v,
