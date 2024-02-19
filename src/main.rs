@@ -298,6 +298,16 @@ struct OsRelease {
     os_release: HashMap<String, String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct SystemVersionPlist {
+    #[serde(rename(deserialize = "ProductBuildVersion"))]
+    build: String,
+    #[serde(rename(deserialize = "ProductName"))]
+    name: String,
+    #[serde(rename(deserialize = "ProductVersion"))]
+    version: String
+}
+
 #[derive(Debug, Clone)]
 struct OsInfo {
     os_release_file_content: OsRelease,
@@ -353,25 +363,30 @@ impl OsRelease {
             });
         } else if os_release_file_exists && cfg!(target_os = "macos") {
             // Read the file to the variable raw_file_content
-            let mut raw_file_content = String::new();
-            let mut raw_file = fs::File::open(os_release_file_path).unwrap();
-            raw_file.read_to_string(&mut raw_file_content).unwrap();
+            //let mut raw_file_content = String::new();
+            //let mut raw_file = fs::File::open(os_release_file_path).unwrap();
+            //raw_file.read_to_string(&mut raw_file_content).unwrap();
 
             // Split file content into lines and convert to String
-            let raw_file_lines: Vec<String> = raw_file_content
-                .split("<key>")
-                .map(|value| {
-                    value.replace("\t", "").replace("\n", "").to_string()
-                })
-                .collect();
+            //let raw_file_lines: Vec<String> = raw_file_content
+            //    .split("<key>")
+            //    .map(|value| {
+            //        value.replace("\t", "").replace("\n", "").to_string()
+            //    })
+            //    .collect();
 
             // Parse and insert every line into hashmap
-            raw_file_lines.iter().for_each(|line| {
-                dbg!(&line);
-                if line.starts_with("<key>") {
-                    dbg!(line);
-                }
-            });
+            //raw_file_lines.iter().for_each(|line| {
+            //    dbg!(&line);
+            //    if line.starts_with("<key>") {
+            //        dbg!(line);
+            //    }
+            //});
+            let systemplist: SystemVersionPlist = plist::from_file(os_release_file_path).expect("Failed to read SystemVersion.Plist is present but not readable. Something is seriously wrong!");
+            os_release_values.insert("VERSION_ID".to_string(), systemplist.version); 
+            os_release_values.insert("PRETTY_NAME".to_string(), systemplist.name);
+            os_release_values.insert("ID".to_string(), env::consts::OS.to_string());
+
         } else {
             eprintln!("No os-release-type file present. Exiting with code 1");
             exit(1);
@@ -519,18 +534,6 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
             exit(1);
         }
     };
-
-    /*let module_names = [
-        "",
-        "OS",
-        "Arch",
-        if &info.os_type == "linux" {
-            "Kernel"
-        } else {
-            "Release"
-        },
-        "Shell",
-    ];*/
 
     let separator = display.textfield.separator.unwrap_or(":".to_string());
     modules.modules.iter().for_each(|val| {
