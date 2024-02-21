@@ -116,9 +116,9 @@ default_art = "~/.config/fetch/art/default"
 [display]
 [display.textfield]
 [modules]
-modules = ["shell", "os"]
+modules = ["userhost", "shell", "os", "kernel"]
 
-definitions = [{name = "shell", key = "SHELL", type = "shell"},{name = "userhost", format = "{1}@{2}", type = "userhost"},{name = "os", key = "OS", type = "os"}]"#;
+definitions = [{name = "kernel", key = "KERNEL", type = "kernel"}, {name = "shell", key = "SHELL", type = "shell"},{name = "userhost", format = "{1}@{2}", type = "userhost"},{name = "os", key = "OS", type = "os"}]"#;
 
         let file_content = match fs::read_to_string(configuration_file) {
             Ok(val) => val,
@@ -401,7 +401,7 @@ impl OsRelease {
 impl OsInfo {
     fn new() -> Self {
         let uname = utsname::uname().unwrap();
-        return Self {
+        Self {
             os_release_file_content: OsRelease::new(),
             os_type: env::consts::OS.to_string(),
             os_arch: env::consts::ARCH.to_string(),
@@ -415,7 +415,7 @@ impl OsInfo {
             },
             os_release: String::from(uname.release().to_str().unwrap()),
             hostname: String::from(uname.nodename().to_str().unwrap()),
-        };
+        }
     }
 }
 
@@ -444,7 +444,11 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
             } else if path::Path::new("/etc/fetch/art/").exists() == true {
                 path::Path::new("/etc/fetch/art").to_path_buf()
             } else {
-                println!("Error: No art directory is present. Please create either \"/etc/fetch/art/\" or \"{}/art\" and install the required art!", config_dir.to_str().unwrap());
+                if !cfg!(target_os = "macos") {
+                    println!("Error: No art directory is present. Please create either \"/etc/fetch/art/\" or \"{}/art\" and install the required art!", config_dir.to_str().unwrap());
+                } else {
+                    println!("Error: No art directory is present. Please create \"{}/art\" and install the required art!", config_dir.to_str().unwrap());
+                }
                 exit(1);
             }
         }
