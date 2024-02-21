@@ -86,6 +86,7 @@ struct Module {
     name: String,
     key: Option<String>,
     format: Option<String>,
+    separator_char: Option<char>,
     walls: Option<bool>,
     #[serde(rename(deserialize = "type"))]
     module_type: String,
@@ -116,9 +117,9 @@ default_art = "~/.config/fetch/art/default"
 [display]
 [display.textfield]
 [modules]
-modules = ["userhost", "shell", "os", "kernel"]
+modules = ["userhost", "separator", "shell", "os", "kernel"]
 
-definitions = [{name = "kernel", key = "KERNEL", type = "kernel"}, {name = "shell", key = "SHELL", type = "shell"},{name = "userhost", format = "{1}@{2}", type = "userhost"},{name = "os", key = "OS", type = "os"}]"#;
+definitions = [{name = "separator", separator_char = '-', type = "separator"},{name = "kernel", key = "KERNEL", type = "kernel"}, {name = "shell", key = "SHELL", type = "shell"},{name = "userhost", format = "{1}@{2}", type = "userhost"},{name = "os", key = "OS", type = "os"}]"#;
 
         let file_content = match fs::read_to_string(configuration_file) {
             Ok(val) => val,
@@ -169,9 +170,15 @@ definitions = [{name = "kernel", key = "KERNEL", type = "kernel"}, {name = "shel
                 });
                 formats.push(info.os_arch.clone());
             }
-            "separator" => {
-                formats.push("-".to_string());
-            }
+            "separator" => formats.push(match module.separator_char {
+                Some(val) => val.to_string().clone(),
+                None => {
+                    eprintln!(
+                        "The \"separator\" needs the \"separator_char\" parameter to be specified"
+                    );
+                    exit(1);
+                }
+            }),
             "custom" => {
                 value = match module.format.as_ref() {
                     Some(val) => val.clone(),
@@ -250,7 +257,7 @@ definitions = [{name = "kernel", key = "KERNEL", type = "kernel"}, {name = "shel
                     formats.iter().enumerate().for_each(|val| {
                         value.push_str(val.1.as_str());
                         dbg!(&val);
-                        if !val.1.is_empty() && val.0 != formats.len()-1{
+                        if !val.1.is_empty() && val.0 != formats.len() - 1 {
                             value.push(' ')
                         }
                     });
@@ -305,7 +312,7 @@ struct SystemVersionPlist {
     #[serde(rename(deserialize = "ProductName"))]
     name: String,
     #[serde(rename(deserialize = "ProductVersion"))]
-    version: String
+    version: String,
 }
 
 #[derive(Debug, Clone)]
@@ -382,11 +389,12 @@ impl OsRelease {
             //        dbg!(line);
             //    }
             //});
-            let systemplist: SystemVersionPlist = plist::from_file(os_release_file_path).expect("Failed to read SystemVersion.Plist is present but not readable. Something is seriously wrong!");
-            os_release_values.insert("VERSION_ID".to_string(), systemplist.version); 
+            let systemplist: SystemVersionPlist = plist::from_file(os_release_file_path).expect(
+                "SystemVersion.Plist is present but not readable. Something is seriously wrong!",
+            );
+            os_release_values.insert("VERSION_ID".to_string(), systemplist.version);
             os_release_values.insert("PRETTY_NAME".to_string(), systemplist.name);
             os_release_values.insert("ID".to_string(), env::consts::OS.to_string());
-
         } else {
             eprintln!("No os-release-type file present. Exiting with code 1");
             exit(1);
@@ -522,10 +530,10 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
 
     // start of module section
 
-    let mut parsed_modules: HashMap<String, (String, String)> = HashMap::new();
+    let mut parsed_modules: HashMap<String, (String, String, String)> = HashMap::new();
     for module in modules.definitions {
         let parsed = Config::parse_module(&info, module);
-        parsed_modules.insert(parsed.0, (parsed.1 .0, parsed.1 .1));
+        parsed_modules.insert(parsed.0, (parsed.1 .0, parsed.1 .1, parsed.1 .2));
     }
     // get longest module
     let longest_module = match parsed_modules
@@ -542,7 +550,13 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
     let separator = display.textfield.separator.unwrap_or(":".to_string());
     modules.modules.iter().for_each(|val| {
         let module = match parsed_modules.get(val) {
-            Some(v) => v,
+            Some(v) => {
+                let mut v_clone = v.clone();
+                if v.2 == "separator" {
+                    v_clone.1 = format!("{:>length$}", vstr = v.1, length = longest_module)
+                };
+                v_clone
+            }
             None => {
                 eprintln!("Error! Module \"{}\" is undefined", val);
                 exit(1);
