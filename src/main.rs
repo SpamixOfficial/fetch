@@ -67,7 +67,7 @@ impl OsRelease {
 impl OsInfo {
     fn new() -> Self {
         let uname = utsname::uname().unwrap();
-        Self {
+        return Self {
             os_release_file_content: OsRelease::new(),
             os_type: env::consts::OS.to_string(),
             os_arch: env::consts::ARCH.to_string(),
@@ -81,7 +81,7 @@ impl OsInfo {
             },
             os_release: String::from(uname.release().to_str().unwrap()),
             hostname: String::from(uname.nodename().to_str().unwrap()),
-        }
+        };
     }
 }
 
