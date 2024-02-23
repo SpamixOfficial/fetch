@@ -7,6 +7,6 @@ This is where I keep all the plans and ideas I have for this. See the checklist 
 - [ ] Configuration files
 - [ ] Color
 - [X] Logo files instead of hardcoded logos
-- [ ] Fix MacOS "OsRelease"
+- [X] Fix MacOS "OsRelease"
 - [ ] Rebrand to bluefetch
 - [ ] Proper documentation
