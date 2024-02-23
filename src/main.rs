@@ -156,6 +156,7 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
         let parsed = Config::parse_module(&info, module);
         parsed_modules.insert(parsed.0, (parsed.1 .0, parsed.1 .1, parsed.1 .2));
     }
+    
     // get longest module
     let longest_module = match parsed_modules
         .iter()
@@ -167,6 +168,8 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
             exit(1);
         }
     };
+    
+    dbg!(&longest_module);
 
     let separator = display.textfield.separator.unwrap_or(":".to_string());
     modules.modules.iter().for_each(|val| {
@@ -175,7 +178,12 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
                 let mut v_clone = v.clone();
                 if v.2 == "separator" {
                     // TODO: FINISH SEPARATOR MODULE HERE (This creates the actual line)
-                    v_clone.1 = format!("{:>length$}", vstr = v.1, length = longest_module)
+                    //v_clone.1 = format!("{:>length$}", vstr = v.1, length = longest_module)
+                    v_clone.1 = String::new();
+                    let sep_char = v.1.chars().collect::<Vec<char>>()[0];
+                    for _ in 0..longest_module {
+                        v_clone.1.push(sep_char)
+                    };
                 };
                 v_clone
             }
