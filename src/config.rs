@@ -95,6 +95,7 @@ impl Config {
                 "fetch"
             },
         );
+        dbg!(&custom_configuration);
         let configuration_file = if custom_configuration.0 == true {
             custom_configuration.1.get(0).unwrap().to_owned()
         } else if config_dir.join("config.toml").try_exists().is_err() {

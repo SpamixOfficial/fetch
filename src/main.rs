@@ -30,6 +30,8 @@ fn main() {
     arguments.add_exit_status(0, "Everything went well");
     arguments.add_exit_status(1, "An error occurred");
     let args = arguments.parse_args(None);
+    
+    dbg!(&args.get("c"));
 
     // Start of program
     let info = OsInfo::new();

@@ -9,7 +9,7 @@ keywords = ["fetch", "system-info"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-taap = "0.1.3"
+taap = "0.1.4"
 toml = "^0.8"
 dirs = "5.0.1"
 json = "0.12.4"
@@ -22,7 +22,7 @@ features = [
 ]
 
 [dependencies.nix]
-version = "^0.27"
+version = "0.28"
 features = [
     "feature"
 ]
