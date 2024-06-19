@@ -6,6 +6,7 @@ Simple fetch command written in rust
 This tool is still in development so things might change quickly or (worst case scenario) break.
 
 If something breaks, please refer to this documentation or file an issue on GitLab or GitHub!
+(GitLab is preferred!)
 
 ## Installation
 
