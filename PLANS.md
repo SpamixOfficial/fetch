@@ -10,6 +10,7 @@ This is where I keep all the plans and ideas I have for this. See the checklist 
 - [X] Fix MacOS "OsRelease"
 - [ ] Rebrand to bluefetch
 - [ ] Proper documentation
+- [ ] Fix separator module format. Its broken because of line 224 in main.rs. Gotta fix some sort of custom handling there for the separator module.
 
 ## Config Checklist
 ### General
@@ -17,7 +18,7 @@ This is where I keep all the plans and ideas I have for this. See the checklist 
 - [X] Art Directory
 
 ### Display
-- [ ] Gap
+- [X] Gap
 - [ ] Display.TextField
 
 ### Display.TextField

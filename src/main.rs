@@ -38,7 +38,10 @@ fn main() {
     let info = OsInfo::new();
     let config = Config::get_config(&info, args.get("c").unwrap().to_owned());
 
-    // Debug argument
+    if debug {
+        dbg!(&config);
+    };
+
     let os_logo = args.get("os-logo").unwrap();
     let art;
     // If os-logo argument was used, use the specified logo
@@ -193,6 +196,8 @@ fn create_output(
         dbg!(&longest_module);
     }
 
+    // This section gets some variables used for the textfield
+
     // Get the separator from config, default to ":"
     // Also get separator module
     //
@@ -203,9 +208,13 @@ fn create_output(
     //  Param: Text
     //       ^
     //       That is the separator setting
-
+    
     let separator = display.textfield.separator.unwrap_or(":".to_string());
+    let textfield_walls = match display.textfield.walls { Some(val) => val, None => "".to_owned()};
 
+    dbg!(&textfield_walls);
+
+    // Create textfield output
     modules.modules.iter().for_each(|val| {
         let module = match parsed_modules.get(val) {
             Some(v) => {
@@ -238,10 +247,12 @@ fn create_output(
         };
         dbg!(numspaces, module.0.len(), separator.len(),);
         tmp_fieldstrings.push(format!(
-            "{}{}{:>spaces$}",
+            "{}{}{}{:>spaces$}{}",
+            textfield_walls,
             module.0,
             if !module.0.is_empty() { &separator } else { "" },
             module.1,
+            textfield_walls,
             spaces = if !module.0.is_empty() { numspaces } else { 0 }
         ));
     });
@@ -334,7 +345,21 @@ fn create_output(
         };
         // get the so called "2nd line", the line that isn't affected by wait
         // get either field or art
-        outstr.push_str(format!("  {}{:>spaces_needed$}  {}\n", line1, "", line2).as_str());
+        outstr.push_str(
+            format!(
+                "  {}{:>spaces_needed$}{:>displaygap$}  {}\n",
+                line1,
+                "",
+                "",
+                line2,
+                displaygap = if display.gap.is_some() {
+                    display.gap.unwrap()
+                } else {
+                    0
+                }
+            )
+            .as_str(),
+        );
     }
 
     outstr
