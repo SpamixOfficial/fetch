@@ -1,22 +1,19 @@
 use dirs;
-use std::{
-    collections::HashMap,
-    fs,
-    path,
-    process::exit,
-    str,
-};
+use std::{collections::HashMap, fs, path, process::exit, str};
 
 use taap;
 
 pub mod config;
 pub mod osrelease;
 
+use config::{Config, Display, Modules};
 use osrelease::OsInfo;
-use config::{Config, Modules, Display};
 
 fn main() {
     // Argument creation and handling
+
+    let debug: bool;
+
     let mut arguments = taap::Argument::new(
         "fetch",
         "Minimal and easy fetch tool written in rust",
@@ -25,30 +22,40 @@ fn main() {
     );
     arguments.add_option('c', "config", "1", Some("Manually specify the config file"));
     arguments.add_option('-', "os-logo", "1", Some("Manually specify OS logo"));
+    arguments.add_option('d', "debug", "0", None);
     // todo
     //arguments.add_option('l', "list-art", "0", Some("List all known available art"));
     arguments.add_exit_status(0, "Everything went well");
     arguments.add_exit_status(1, "An error occurred");
     let args = arguments.parse_args(None);
-    
-    dbg!(&args.get("c"));
+    debug = args.get("d").unwrap().0;
+
+    if debug {
+        dbg!(&args.get("c"));
+    };
 
     // Start of program
     let info = OsInfo::new();
     let config = Config::get_config(&info, args.get("c").unwrap().to_owned());
 
+    // Debug argument
     let os_logo = args.get("os-logo").unwrap();
     let art;
+    // If os-logo argument was used, use the specified logo
+    // If you find these comments while looking through the code, I am so sorry you have to read
+    // this spaghetti mess.
+    //
+    // I am unsure about what some of these parts do - I wrote them 6 months before this comment
+    // ¯\_(ツ)_/¯
     if os_logo.0 {
         art = get_ascii(&info, Some(os_logo.1.get(0).unwrap().to_owned()), &config);
     } else {
         art = get_ascii(&info, None, &config);
     };
 
-    let output = create_output(art, info, config.modules, config.display);
+    let output = create_output(art, info, config.modules, config.display, &debug);
     println!("{}", output);
 }
-
 
 fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> String {
     let os_type = if !custom_logo.is_none() {
@@ -123,7 +130,13 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
     art
 }
 
-fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) -> String {
+fn create_output(
+    art: String,
+    info: OsInfo,
+    modules: Modules,
+    display: Display,
+    debug: &bool,
+) -> String {
     // Preparation starts here
 
     // initialize the output string
@@ -137,6 +150,8 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
 
     let mut tmp_art_lines: Vec<String> = vec![];
 
+    // Find the longest "item" (string/line) in the art file/object
+    // Also return the art lines as a Vector
     art_lines = match art_lines.iter().max_by(|x, y| x.len().cmp(&y.len())) {
         Some(val) => {
             let longest_item = val.chars().count();
@@ -158,8 +173,11 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
         let parsed = Config::parse_module(&info, module);
         parsed_modules.insert(parsed.0, (parsed.1 .0, parsed.1 .1, parsed.1 .2));
     }
-    
+
     // get longest module
+    //
+    // IMPORTANT: Dont confuse the longest module with the longest art line (longest_item)
+    // The variables look the same but they are used for different purposes!
     let longest_module = match parsed_modules
         .iter()
         .max_by(|x, y| (x.1 .0.len() + x.1 .1.len()).cmp(&(y.1 .0.len() + y.1 .1.len())))
@@ -170,22 +188,34 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
             exit(1);
         }
     };
-    
-    dbg!(&longest_module);
+
+    if *debug {
+        dbg!(&longest_module);
+    }
+
+    // Get the separator from config, default to ":"
+    // Also get separator module
+    //
+    // Separator module != Separator setting
+    //
+    //   SOME TEXT
+    //  +++++++++++ <-- That is the separator module in action
+    //  Param: Text
+    //       ^
+    //       That is the separator setting
 
     let separator = display.textfield.separator.unwrap_or(":".to_string());
+
     modules.modules.iter().for_each(|val| {
         let module = match parsed_modules.get(val) {
             Some(v) => {
                 let mut v_clone = v.clone();
                 if v.2 == "separator" {
-                    // TODO: FINISH SEPARATOR MODULE HERE (This creates the actual line)
-                    //v_clone.1 = format!("{:>length$}", vstr = v.1, length = longest_module)
                     v_clone.1 = String::new();
                     let sep_char = v.1.chars().collect::<Vec<char>>()[0];
                     for _ in 0..longest_module {
                         v_clone.1.push(sep_char)
-                    };
+                    }
                 };
                 v_clone
             }
@@ -194,12 +224,19 @@ fn create_output(art: String, info: OsInfo, modules: Modules, display: Display) 
                 exit(1);
             }
         };
-        dbg!(&module);
-        // get number of spaces
-        let numspaces = match display.textfield.gap {
-            Some(val) => val - module.0.len() - separator.len(),
-            None => &longest_module - module.0.len(),
+        if *debug {
+            dbg!(&module);
         };
+        // get number of spaces
+        // I remove 1 space on the default option because the padding becomes janky and adds one extra space
+        // No idea what is the cause of this ¯\_(ツ)_/¯
+        //
+        // If you happen to find the reason/fix for this, please do a better implementation :-)
+        let numspaces = match display.textfield.gap {
+            Some(val) => val + module.1.len(),
+            None => &longest_module - module.0.len() - 1,
+        };
+        dbg!(numspaces, module.0.len(), separator.len(),);
         tmp_fieldstrings.push(format!(
             "{}{}{:>spaces$}",
             module.0,
