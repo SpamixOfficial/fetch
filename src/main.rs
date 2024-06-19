@@ -61,14 +61,7 @@ fn main() {
 }
 
 fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> String {
-    let os_type = if !custom_logo.is_none() {
-        custom_logo.as_ref().unwrap().to_owned()
-    } else {
-        match info.os_release_file_content.os_release.get("ID") {
-            Some(val) => val.clone(),
-            None => info.os_type.clone(),
-        }
-    };
+    let os_type = custom_logo.unwrap_or(info.os_type.clone());
 
     let config_dir =
         path::Path::new(dirs::config_dir().unwrap().as_path()).join(if info.os_type == "macos" {
@@ -100,7 +93,7 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
         false => art_directory.join("default"),
     };
     let mut art: String;
-    if art_path.exists() && custom_logo.is_none() {
+    if art_path.exists() {
         art = fs::read_to_string(&art_path).unwrap();
         if art.is_empty() {
             eprintln!(
@@ -208,9 +201,12 @@ fn create_output(
     //  Param: Text
     //       ^
     //       That is the separator setting
-    
+
     let separator = display.textfield.separator.unwrap_or(":".to_string());
-    let textfield_walls = match display.textfield.walls { Some(val) => val, None => "".to_owned()};
+    let textfield_walls = match display.textfield.walls {
+        Some(val) => val,
+        None => "".to_owned(),
+    };
 
     dbg!(&textfield_walls);
 
