@@ -12,7 +12,7 @@ use toml;
 
 // Art section
 // This is where you add art if you want the path to be configurable
-#[derive(Deserialize, Debug)]
+/*#[derive(Deserialize, Debug)]
 pub struct Art {
     pub linux: Option<String>,
     pub macos: Option<String>,
@@ -35,7 +35,7 @@ impl Art {
         };
         returnval.to_owned()
     }
-}
+}*/
 
 
 
@@ -46,12 +46,12 @@ pub struct Config {
     pub general: General,
     pub modules: Modules,
     pub display: Display,
-    pub art: Option<Art>,
+    //pub art: Option<Art>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct General {
-    pub default_art: String,
+    pub default_art: Option<String>,
     pub art_directory: Option<String>,
 }
 

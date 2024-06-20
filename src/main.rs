@@ -61,8 +61,14 @@ fn main() {
 }
 
 fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> String {
+    // Get the OS name also known as the os "ID"
+    // We get the custom logo of specified, or if that fails we simply use info.os_type which
+    // corresponds to "linux", "macos", "freebsd", or whatever ID is specified in os-release
     let os_type = custom_logo.unwrap_or(info.os_type.clone());
 
+    // Really weird way of getting the configuration directory, but it works
+    //
+    // Ignore the weird rust formatting
     let config_dir =
         path::Path::new(dirs::config_dir().unwrap().as_path()).join(if info.os_type == "macos" {
             "se.spamix.fetch"
@@ -70,6 +76,10 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
             "fetch"
         });
 
+    // As you see we can define a custom art_directory in the config, which we try to use if it
+    // exists
+    //
+    // If it doesnt exist we automaticaly determine it by doing witchcraft and spitting errors
     let art_directory = match &config.general.art_directory {
         Some(val) => path::Path::new(val.as_str()).to_path_buf(),
         None => {
@@ -88,9 +98,17 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
         }
     };
 
-    let art_path = match path::Path::new(config.general.default_art.as_str()).exists() {
-        true => path::Path::new(config.general.default_art.as_str()).to_path_buf(),
-        false => art_directory.join("default"),
+    // Here we get the actual art path by either using the default art defined in the config
+    // or by just using the file named "default" in the art directory
+    //
+    // If the default_art happens to not be defined, simply set the path to "" which will fail 100%
+    let art_path = if config.general.default_art.is_some() {
+        match path::Path::new(config.general.default_art.clone().unwrap().as_str()).exists() {
+            true => path::Path::new(config.general.default_art.clone().unwrap().as_str()).to_path_buf(),
+            false => art_directory.join("default"),
+        }
+    } else {
+        path::Path::new("").to_path_buf()
     };
     let mut art: String;
     if art_path.exists() {
@@ -103,9 +121,15 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
             );
             exit(1);
         }
-    } else if config.art.is_some() && config.art.as_ref().unwrap().get_art(&os_type).is_some() {
-        art = config.art.as_ref().unwrap().get_art(&os_type).unwrap();
+    /*} else if config.art.is_some() && config.art.as_ref().unwrap().get_art(&os_type).is_some() {
+        art = config.art.as_ref().unwrap().get_art(&os_type).unwrap();*/
     } else {
+        // Here we set the art to unknown in case no art corresponding to your OS is actually
+        // found!
+        //
+        // If this fails we can assume that the binary wasnt installed in a correct way
+        // The outcome is us complaining about no art being installed
+        // ¯\_(ツ)_/¯
         art = match fs::read_to_string(&art_directory.join("unknown")) {
             Ok(val) => val,
             Err(_) => {
@@ -113,8 +137,11 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
                 exit(1);
             }
         };
+        // Get all files in the art directory
         let paths = fs::read_dir(&art_directory).unwrap();
         // find the correct art file
+        //
+        // If this fails we simply do nothing because we've already handled the "unknown" art before
         match paths
             .into_iter()
             .find(|path| path.as_ref().unwrap().file_name().to_str().unwrap() == &os_type)
