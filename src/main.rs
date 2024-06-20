@@ -62,9 +62,14 @@ fn main() {
 
 fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> String {
     // Get the OS name also known as the os "ID"
-    // We get the custom logo of specified, or if that fails we simply use info.os_type which
-    // corresponds to "linux", "macos", "freebsd", or whatever ID is specified in os-release
-    let os_type = custom_logo.unwrap_or(info.os_type.clone());
+    // We get the custom logo if specified, if that fails we get the os-release ID.
+    // If that fails we get the os_type
+    //
+    // Later in the code if the logo for the os turn out to not be present we use the os_type instead!
+    let os_type = custom_logo.unwrap_or(match info.os_release_file_content.os_release.get("ID") {
+        Some(val) => val.to_owned(),
+        None => info.os_type.clone(),
+    });
 
     // Really weird way of getting the configuration directory, but it works
     //
@@ -104,7 +109,9 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
     // If the default_art happens to not be defined, simply set the path to "" which will fail 100%
     let art_path = if config.general.default_art.is_some() {
         match path::Path::new(config.general.default_art.clone().unwrap().as_str()).exists() {
-            true => path::Path::new(config.general.default_art.clone().unwrap().as_str()).to_path_buf(),
+            true => {
+                path::Path::new(config.general.default_art.clone().unwrap().as_str()).to_path_buf()
+            }
             false => art_directory.join("default"),
         }
     } else {
@@ -122,7 +129,7 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
             exit(1);
         }
     /*} else if config.art.is_some() && config.art.as_ref().unwrap().get_art(&os_type).is_some() {
-        art = config.art.as_ref().unwrap().get_art(&os_type).unwrap();*/
+    art = config.art.as_ref().unwrap().get_art(&os_type).unwrap();*/
     } else {
         // Here we set the art to unknown in case no art corresponding to your OS is actually
         // found!
@@ -137,15 +144,18 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
                 exit(1);
             }
         };
-        // Get all files in the art directory
-        let paths = fs::read_dir(&art_directory).unwrap();
         // find the correct art file
+        // We first try to use our os_type variable, but if that isnt found we go directly to the
+        // actual os_type, "linux", "freebsd", "macos", etc...
         //
         // If this fails we simply do nothing because we've already handled the "unknown" art before
-        match paths
+        match fs::read_dir(&art_directory)
+            .unwrap()
             .into_iter()
-            .find(|path| path.as_ref().unwrap().file_name().to_str().unwrap() == &os_type)
-        {
+            .find(|path| {
+                path.as_ref().unwrap().file_name().to_str().unwrap() == &os_type
+                    || path.as_ref().unwrap().file_name().to_str().unwrap() == &info.os_type
+            }) {
             Some(val) => art = fs::read_to_string(val.unwrap().path()).unwrap(),
             _ => (),
         }
