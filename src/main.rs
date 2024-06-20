@@ -1,5 +1,5 @@
 use dirs;
-use std::{collections::HashMap, fs, path, process::exit, str};
+use std::{collections::HashMap, fs, path, process::exit};
 
 use taap;
 
@@ -36,7 +36,7 @@ fn main() {
 
     // Start of program
     let info = OsInfo::new();
-    let config = Config::get_config(&info, args.get("c").unwrap().to_owned());
+    let config = Config::get_config(&info, args.get("c").unwrap().to_owned(), debug);
 
     if debug {
         dbg!(&config);
@@ -56,20 +56,25 @@ fn main() {
         art = get_ascii(&info, None, &config);
     };
 
-    let output = create_output(art, info, config.modules, config.display, &debug);
+    let output = create_output(art, info, config.modules, config.display, debug);
     println!("{}", output);
 }
 
 fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> String {
     // Get the OS name also known as the os "ID"
-    // We get the custom logo if specified, if that fails we get the os-release ID.
+    // We get the custom logo if specified, if that fails we get the os-release ID (distro id).
     // If that fails we get the os_type
     //
-    // Later in the code if the logo for the os turn out to not be present we use the os_type instead!
-    let os_type = custom_logo.unwrap_or(match info.os_release_file_content.os_release.get("ID") {
-        Some(val) => val.to_owned(),
-        None => info.os_type.clone(),
-    });
+    // TLDR: custom logo > distro name > os name
+    //
+    // Later in the code if the logo for the os turns out to not be present we use this instead!
+    let art_name = custom_logo.unwrap_or(
+        info.os_release_file_content
+            .os_release
+            .get("ID")
+            .unwrap_or(&info.os_type)
+            .to_string(),
+    );
 
     // Really weird way of getting the configuration directory, but it works
     //
@@ -88,9 +93,9 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
     let art_directory = match &config.general.art_directory {
         Some(val) => path::Path::new(val.as_str()).to_path_buf(),
         None => {
-            if config_dir.join("art").exists() == true {
+            if config_dir.join("art").exists() {
                 config_dir.join("art")
-            } else if path::Path::new("/etc/fetch/art/").exists() == true {
+            } else if path::Path::new("/etc/fetch/art/").exists() {
                 path::Path::new("/etc/fetch/art").to_path_buf()
             } else {
                 if !cfg!(target_os = "macos") {
@@ -137,27 +142,21 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
         // If this fails we can assume that the binary wasnt installed in a correct way
         // The outcome is us complaining about no art being installed
         // ¯\_(ツ)_/¯
-        art = match fs::read_to_string(&art_directory.join("unknown")) {
-            Ok(val) => val,
-            Err(_) => {
-                println!("No \"unknown\" art is present! Please install the necessary art.");
-                exit(1);
-            }
-        };
+        art = fs::read_to_string(&art_directory.join("unknown"))
+            .expect("No \"unknown\" art is present! Please install the necessary art.");
         // find the correct art file
         // We first try to use our os_type variable, but if that isnt found we go directly to the
         // actual os_type, "linux", "freebsd", "macos", etc...
         //
         // If this fails we simply do nothing because we've already handled the "unknown" art before
-        match fs::read_dir(&art_directory)
+        if let Some(file_name) = fs::read_dir(&art_directory)
             .unwrap()
             .into_iter()
-            .find(|path| {
-                path.as_ref().unwrap().file_name().to_str().unwrap() == &os_type
-                    || path.as_ref().unwrap().file_name().to_str().unwrap() == &info.os_type
-            }) {
-            Some(val) => art = fs::read_to_string(val.unwrap().path()).unwrap(),
-            _ => (),
+            .filter_map(|p| p.ok())
+            .map(|p| p.file_name().to_string_lossy().to_string())
+            .find(|file_name| *file_name == art_name || *file_name == info.os_type)
+        {
+            art = fs::read_to_string(art_directory.join(file_name)).unwrap();
         }
     };
     art
@@ -168,42 +167,39 @@ fn create_output(
     info: OsInfo,
     modules: Modules,
     display: Display,
-    debug: &bool,
+    debug: bool,
 ) -> String {
     // Preparation starts here
 
-    // initialize the output string
-    let mut outstr = String::new();
+    // initialize output lines
+    let mut lines = Vec::new();
 
     // initialize temporary "fields strings"
-    let mut tmp_fieldstrings: Vec<String> = vec![];
+    let mut tmp_fieldstrings: Vec<String> = Vec::new();
 
     // get all art lines and add necessary spaces
-    let mut art_lines: Vec<&str> = art.split("\n").filter(|&x| !x.is_empty()).collect();
-
-    let mut tmp_art_lines: Vec<String> = vec![];
+    let mut art_lines: Vec<String> = art
+        .split("\n")
+        .filter(|&x| !x.is_empty())
+        .map(|x| x.to_string())
+        .collect();
 
     // Find the longest "item" (string/line) in the art file/object
-    // Also return the art lines as a Vector
-    art_lines = match art_lines.iter().max_by(|x, y| x.len().cmp(&y.len())) {
-        Some(val) => {
-            let longest_item = val.chars().count();
-            art_lines
-                .iter()
-                .for_each(|x| tmp_art_lines.push(format!("{:<longest_item$}", x)));
-            tmp_art_lines.iter().map(|s| s.as_str()).collect::<Vec<_>>()
-        }
-        None => {
-            eprintln!("Error: Art file is empty");
-            exit(1);
-        }
-    };
+    let longest_item = art_lines
+        .iter()
+        .max_by_key(|x| x.len())
+        .expect("Error: Art file is empty")
+        .len();
+    art_lines = art_lines
+        .iter()
+        .map(|x| format!("{:<longest_item$}", x))
+        .collect();
 
     // start of module section
 
     let mut parsed_modules: HashMap<String, (String, String, String)> = HashMap::new();
     for module in modules.definitions {
-        let parsed = Config::parse_module(&info, module);
+        let parsed = Config::parse_module(&info, module, debug);
         parsed_modules.insert(parsed.0, (parsed.1 .0, parsed.1 .1, parsed.1 .2));
     }
 
@@ -211,24 +207,19 @@ fn create_output(
     //
     // IMPORTANT: Dont confuse the longest module with the longest art line (longest_item)
     // The variables look the same but they are used for different purposes!
-    let longest_module = match parsed_modules
+    let mut longest_module = parsed_modules
         .iter()
-        .max_by(|x, y| (x.1 .0.len() + x.1 .1.len()).cmp(&(y.1 .0.len() + y.1 .1.len())))
-    {
-        Some(val) => val.1 .0.len() + val.1 .1.len(),
-        None => {
-            eprintln!("Error: All modules are empty");
-            exit(1);
-        }
-    };
+        .map(|x| x.1 .0.len() + x.1 .1.len())
+        .max()
+        .expect("Error: All modules are empty");
 
-    if *debug {
+    if debug {
         dbg!(&longest_module);
     }
 
     // This section gets some variables used for the textfield
 
-    // Get the separator from config, default to ":"
+    // Get the separator from config, default to ": "
     // Also get separator module
     //
     // Separator module != Separator setting
@@ -239,13 +230,14 @@ fn create_output(
     //       ^
     //       That is the separator setting
 
-    let separator = display.textfield.separator.unwrap_or(":".to_string());
-    let textfield_walls = match display.textfield.walls {
-        Some(val) => val,
-        None => "".to_owned(),
-    };
+    let separator = display.textfield.separator.unwrap_or(": ".to_string());
+    let textfield_walls = display.textfield.walls.unwrap_or(String::from(""));
 
-    dbg!(&textfield_walls);
+    longest_module += separator.len();
+
+    if debug {
+        dbg!(&textfield_walls);
+    }
 
     // Create textfield output
     modules.modules.iter().for_each(|val| {
@@ -266,7 +258,7 @@ fn create_output(
                 exit(1);
             }
         };
-        if *debug {
+        if debug {
             dbg!(&module);
         };
         // get number of spaces
@@ -276,9 +268,11 @@ fn create_output(
         // If you happen to find the reason/fix for this, please do a better implementation :-)
         let numspaces = match display.textfield.gap {
             Some(val) => val + module.1.len(),
-            None => &longest_module - module.0.len() - 1,
+            None => &longest_module - module.0.len() - separator.len(),
         };
-        dbg!(numspaces, module.0.len(), separator.len(),);
+        if debug {
+            dbg!(numspaces, module.0.len(), separator.len());
+        }
         tmp_fieldstrings.push(format!(
             "{}{}{}{:>spaces$}{}",
             textfield_walls,
@@ -316,23 +310,19 @@ fn create_output(
     };
 
     // get the longest art or field line
-    let longest_art_line = if wait.0 != true {
-        match tmp_fieldstrings.iter().max_by(|x, y| x.len().cmp(&y.len())) {
-            Some(val) => val.chars().count(),
-            None => {
-                eprintln!("Error: Field strings are empty");
-                exit(1);
-            }
-        }
+    let longest_art_line = if wait.0 {
+        &art_lines
     } else {
-        match art_lines.iter().max_by(|x, y| x.len().cmp(&y.len())) {
-            Some(val) => val.chars().count(),
-            None => {
-                eprintln!("Error: Art file is empty");
-                exit(1);
-            }
-        }
-    };
+        &tmp_fieldstrings
+    }
+    .iter()
+    .max_by_key(|x| x.len())
+    .expect(if wait.0 {
+        "Error: Art file is empty"
+    } else {
+        "Error: Field strings are empty"
+    })
+    .len();
 
     // create counter
     let mut wait_counter = wait.1.clone();
@@ -346,7 +336,7 @@ fn create_output(
         //
         let line1;
         let line2;
-        if wait.0 == true {
+        if wait.0 {
             line1 = if wait_counter == 0 && i - wait.1 < art_lines.len() {
                 spaces_needed = longest_art_line - art_lines[i - wait.1].len();
                 art_lines[i - wait.1].to_string()
@@ -378,22 +368,19 @@ fn create_output(
         };
         // get the so called "2nd line", the line that isn't affected by wait
         // get either field or art
-        outstr.push_str(
-            format!(
-                "  {}{:>spaces_needed$}{:>displaygap$}  {}\n",
-                line1,
-                "",
-                "",
-                line2,
-                displaygap = if display.gap.is_some() {
-                    display.gap.unwrap()
-                } else {
-                    0
-                }
-            )
-            .as_str(),
-        );
+        lines.push(format!(
+            "  {}{:>spaces_needed$}{:>displaygap$}  {}",
+            line1,
+            "",
+            "",
+            line2,
+            displaygap = if display.gap.is_some() {
+                display.gap.unwrap()
+            } else {
+                0
+            }
+        ));
     }
 
-    outstr
+    lines.join("\n")
 }

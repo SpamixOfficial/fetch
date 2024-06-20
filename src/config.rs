@@ -9,7 +9,6 @@ use std::{
 
 use toml;
 
-
 // Art section
 // This is where you add art if you want the path to be configurable
 /*#[derive(Deserialize, Debug)]
@@ -36,8 +35,6 @@ impl Art {
         returnval.to_owned()
     }
 }*/
-
-
 
 // Config section
 
@@ -87,7 +84,11 @@ pub struct Module {
 }
 
 impl Config {
-    pub fn get_config(info: &OsInfo, custom_configuration: (bool, Vec<String>)) -> Config {
+    pub fn get_config(
+        info: &OsInfo,
+        custom_configuration: (bool, Vec<String>),
+        debug: bool,
+    ) -> Config {
         let config_dir = path::Path::new(dirs::config_dir().unwrap().as_path()).join(
             if info.os_type == "macos" {
                 "se.spamix.fetch"
@@ -95,7 +96,10 @@ impl Config {
                 "fetch"
             },
         );
-        dbg!(&custom_configuration);
+
+        if debug {
+            dbg!(&custom_configuration);
+        }
         let configuration_file = if custom_configuration.0 == true {
             custom_configuration.1.get(0).unwrap().to_owned()
         } else if config_dir.join("config.toml").try_exists().is_err() {
@@ -110,6 +114,7 @@ default_art = "~/.config/fetch/art/default"
 
 [display]
 [display.textfield]
+separator=": "
 [modules]
 modules = ["userhost", "separator", "shell", "os", "kernel"]
 
@@ -133,7 +138,11 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
 
         config
     }
-    pub fn parse_module(info: &OsInfo, module: Module) -> (String, (String, String, String)) {
+    pub fn parse_module(
+        info: &OsInfo,
+        module: Module,
+        debug: bool,
+    ) -> (String, (String, String, String)) {
         let name = &module.name;
 
         let os_release = info.os_release_file_content.os_release.clone();
@@ -250,7 +259,9 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
                 None => {
                     formats.iter().enumerate().for_each(|val| {
                         value.push_str(val.1.as_str());
-                        dbg!(&val);
+                        if debug {
+                            dbg!(&val);
+                        }
                         if !val.1.is_empty() && val.0 != formats.len() - 1 {
                             value.push(' ')
                         }
