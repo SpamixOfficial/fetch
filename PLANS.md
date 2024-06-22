@@ -4,13 +4,13 @@ This is where I keep all the plans and ideas I have for this. See the checklist 
 
 ## Checklist
 
-- [ ] Configuration files
+- [X] Configuration files
 - [ ] Color
 - [X] Logo files instead of hardcoded logos
 - [X] Fix MacOS "OsRelease"
 - [ ] Rebrand to bluefetch
 - [ ] Proper documentation
-- [ ] Fix separator module format. Its broken because of line 224 in main.rs. Gotta fix some sort of custom handling there for the separator module.
+- [X] Fix separator module format.
 
 ## Config Checklist
 ### General
@@ -19,11 +19,11 @@ This is where I keep all the plans and ideas I have for this. See the checklist 
 
 ### Display
 - [X] Gap
-- [ ] Display.TextField
+- [X] Display.TextField
 
 ### Display.TextField
 - [X] Separator
-- [ ] Walls
+- [X] Walls
 - [X] Gap
 
 ### Modules
@@ -33,8 +33,8 @@ This is where I keep all the plans and ideas I have for this. See the checklist 
 ### (Type/Object) Module
 - [X] Name
 - [X] Key
-- [ ] Format
-- [ ] Separator (separator_char)
-- [ ] Walls
+- [X] Format
+- [X] Separator (separator_char)
+- [X] Walls
 - [X] Module Type
 - [X] Execute

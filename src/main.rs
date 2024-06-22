@@ -1,13 +1,15 @@
 use dirs;
-use std::{collections::HashMap, fs, path, process::exit, str};
+use std::{fs, path, process::exit, str};
 
 use taap;
 
 pub mod config;
 pub mod osrelease;
 
-use config::{Config, Display, Modules};
+use config::{Config, Display, ModuleType, Modules};
 use osrelease::OsInfo;
+
+use crate::config::ParsedModuleObject;
 
 fn main() {
     // Argument creation and handling
@@ -201,10 +203,10 @@ fn create_output(
 
     // start of module section
 
-    let mut parsed_modules: HashMap<String, (String, String, String)> = HashMap::new();
+    let mut parsed_modules: Vec<ParsedModuleObject> = vec![];
     for module in modules.definitions {
         let parsed = Config::parse_module(&info, module);
-        parsed_modules.insert(parsed.0, (parsed.1 .0, parsed.1 .1, parsed.1 .2));
+        parsed_modules.push(parsed);
     }
 
     // get longest module
@@ -213,9 +215,9 @@ fn create_output(
     // The variables look the same but they are used for different purposes!
     let longest_module = match parsed_modules
         .iter()
-        .max_by(|x, y| (x.1 .0.len() + x.1 .1.len()).cmp(&(y.1 .0.len() + y.1 .1.len())))
+        .max_by(|x, y| (x.key.len() + x.parsed_module.len()).cmp(&(y.key.len() + y.parsed_module.len())))
     {
-        Some(val) => val.1 .0.len() + val.1 .1.len(),
+        Some(val) => val.key.len() + val.parsed_module.len(),
         None => {
             eprintln!("Error: All modules are empty");
             exit(1);
@@ -245,20 +247,75 @@ fn create_output(
         None => "".to_owned(),
     };
 
-    dbg!(&textfield_walls);
-
-    // Create textfield output
+    // Create textfield output loop
     modules.modules.iter().for_each(|val| {
-        let module = match parsed_modules.get(val) {
+        // Start of the most spaghetti-code-like part
+        // Will explain every part of this mess right here
+        // 
+        // Here we find the right struct, and put it in an option so that we can correctly use it
+        // Why the option you might ask, well we need to check if the module definition actually
+        // exists
+        let mut found_struct: Option<ParsedModuleObject> = None;
+        parsed_modules.iter().for_each(|m| {
+                 if m.name == *val {
+                found_struct = Some(m.clone())
+            } 
+        });
+        // In this statement we test if the module is defined or not.
+        // If it isnt, we throw an error which basically begs the user to fix their configuration
+        let module = match found_struct {
             Some(v) => {
+                // In case we find it, we clone the "v" variable because that is the easiest way to
+                // not fuck up borrows
                 let mut v_clone = v.clone();
-                if v.2 == "separator" {
-                    v_clone.1 = String::new();
-                    let sep_char = v.1.chars().collect::<Vec<char>>()[0];
-                    for _ in 0..longest_module {
-                        v_clone.1.push(sep_char)
-                    }
-                };
+                // In case this is the fancy separator module, we have a special case for it
+                // If not, we simply return the v_clone val!
+                if v.module_type == ModuleType::Separator {
+                    // Here we set v_clone.1 to a new string, because we will override the string
+                    // we got with a new output. The output in v_clone.1 is just the raw-char from
+                    // the beginning, therefore we need to change it
+                    v_clone.parsed_module = String::new();
+                    // Here we check if a format was used by literally checking if a format string
+                    // exists
+                    //
+                    // We do this is because formats is tricky with this dynamic separator module
+                    match v.format_string.clone() {
+                        None => {
+                            // If there isnt a format string we just do the usual stuff
+                            // That is looping for a length and inserting it
+                            let sep_char: char = v.parsed_module.chars().collect::<Vec<char>>()[0];
+                            for _ in 0..longest_module {
+                                v_clone.parsed_module.push(sep_char)
+                            }
+                        }
+                        Some(_) => { 
+                            // Get the parts, that is before and after the format val (the
+                            // separator)
+                            let val_parts: Vec<String> =
+                                v.parsed_module.clone()
+                                    .split("<!")
+                                    .map(|f| f.to_string())
+                                    .collect::<Vec<String>>();
+                            if val_parts.len() != 3 {
+                                eprintln!("Separator module only allows 1 format statement");
+                                exit(1);
+                            }
+                            let sep_before = val_parts.get(0).unwrap();
+                            let sep_after = val_parts.get(2).unwrap();
+                            let sep = val_parts.get(1).unwrap();
+
+                            v_clone.parsed_module.push_str(sep_before);
+
+                            for _ in 0..(longest_module
+                                - sep_before.chars().count()
+                                - sep_after.chars().count())
+                            {
+                                v_clone.parsed_module.push_str(sep)
+                            }
+                            v_clone.parsed_module.push_str(sep_after);
+                        }
+                    };
+                }
                 v_clone
             }
             None => {
@@ -275,20 +332,24 @@ fn create_output(
         //
         // If you happen to find the reason/fix for this, please do a better implementation :-)
         let numspaces = match display.textfield.gap {
-            Some(val) => val + module.1.len(),
-            None => &longest_module - module.0.len() - 1,
+            Some(val) => val + module.parsed_module.len(),
+            None => &longest_module - module.key.len() - 1,
         };
-        dbg!(numspaces, module.0.len(), separator.len(),);
+
+        // Create all the fieldstrings
+        // Disable walls if they happen to be disabled in the module
         tmp_fieldstrings.push(format!(
             "{}{}{}{:>spaces$}{}",
-            textfield_walls,
-            module.0,
-            if !module.0.is_empty() { &separator } else { "" },
-            module.1,
-            textfield_walls,
-            spaces = if !module.0.is_empty() { numspaces } else { 0 }
+            if !module.disabled_walls { textfield_walls.clone() } else {String::from("")},
+            module.key,
+            if !module.key.is_empty() { &separator } else { "" },
+            module.parsed_module,
+            if !module.disabled_walls { textfield_walls.clone() } else {String::from("")},
+            spaces = if !module.key.is_empty() { numspaces } else { 0 }
         ));
     });
+
+    // Start of part where we create the art for the output
 
     // get how long the output will be in lines
 
