@@ -36,7 +36,33 @@ impl Art {
     }
 }*/
 
+#[derive(Debug, Clone)]
+pub struct ParsedModuleObject {
+    pub name: String,
+    pub key: String,
+    pub parsed_module: String,
+    pub module_type: ModuleType,
+    pub format_string: Option<String>,
+    pub disabled_walls: bool,
+}
+
 // Config section
+
+#[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
+pub enum ModuleType {
+    #[serde(rename(deserialize = "separator"))]
+    Separator,
+    #[serde(rename(deserialize = "shell"))]
+    Shell,
+    #[serde(rename(deserialize = "kernel"))]
+    Kernel,
+    #[serde(rename(deserialize = "os"))]
+    Os,
+    #[serde(rename(deserialize = "userhost"))]
+    UserHost,
+    #[serde(rename(deserialize = "custom"))]
+    Custom,
+}
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -79,7 +105,7 @@ pub struct Module {
     pub separator_char: Option<char>,
     pub walls: Option<bool>,
     #[serde(rename(deserialize = "type"))]
-    pub module_type: String,
+    pub module_type: ModuleType,
     pub execute: Option<Vec<String>>,
 }
 
@@ -100,6 +126,7 @@ impl Config {
         if debug {
             dbg!(&custom_configuration);
         }
+
         let configuration_file = if custom_configuration.0 == true {
             custom_configuration.1.get(0).unwrap().to_owned()
         } else if config_dir.join("config.toml").try_exists().is_err() {
@@ -138,11 +165,8 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
 
         config
     }
-    pub fn parse_module(
-        info: &OsInfo,
-        module: Module,
-        debug: bool,
-    ) -> (String, (String, String, String)) {
+
+    pub fn parse_module(info: &OsInfo, module: Module, debug: bool) -> ParsedModuleObject {
         let name = &module.name;
 
         let os_release = info.os_release_file_content.os_release.clone();
@@ -152,17 +176,18 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
 
         let mut value: String = String::new();
 
-        let module_type = module.module_type.clone();
+        let module_type = module.module_type;
 
         // TODO: Add more modules
-        match module_type.as_str() {
-            "shell" => formats.push(info.shell.clone()),
-            "kernel" => formats.push(info.os_release.clone()),
-            "userhost" => {
+        #[allow(unreachable_patterns)]
+        match module_type {
+            ModuleType::Shell => formats.push(info.shell.clone()),
+            ModuleType::Kernel => formats.push(info.os_release.clone()),
+            ModuleType::UserHost => {
                 formats.push(info.username.clone());
                 formats.push(info.hostname.clone());
             }
-            "os" => {
+            ModuleType::Os => {
                 formats.push(match os_release.get("PRETTY_NAME") {
                     Some(val) => val.clone(),
                     None => info.os_type.clone(),
@@ -173,7 +198,7 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
                 });
                 formats.push(info.os_arch.clone());
             }
-            "separator" => formats.push(match module.separator_char {
+            ModuleType::Separator => formats.push(match module.separator_char {
                 Some(val) => val.to_string().clone(),
                 None => {
                     eprintln!(
@@ -182,7 +207,7 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
                     exit(1);
                 }
             }),
-            "custom" => {
+            ModuleType::Custom => {
                 value = match module.format.as_ref() {
                     Some(val) => val.clone(),
                     None => {
@@ -211,22 +236,26 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
                     }
                 }
             }
-            &_ => {
-                eprintln!("Module {} is non-existant", module_type);
+            _ => {
+                eprintln!("Module type is non-existant");
                 exit(1);
             }
         };
 
         // Parse the format string, except if the module type is custom
-        if module_type.as_str() != "custom" {
+        if module_type != ModuleType::Custom {
             match module.format {
                 Some(_) => {
                     for part in module.format.as_ref().unwrap().split_inclusive('}') {
+                        dbg!(part);
                         // find where the format part starts
-                        // If this fails, just skip it since there's obviously no format part
+                        // If this fails, we just push the part to our value string
                         let start_index = match part.find("{") {
                             Some(val) => val,
-                            None => continue,
+                            None => {
+                                value.push_str(part);
+                                continue;
+                            }
                         };
                         // Get the part that isnt a format
                         let rest_part = &part[..start_index];
@@ -249,10 +278,22 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
 
                         // empty values are skipped
                         let output = if !formats[index].is_empty() {
-                            format!("{}{}", rest_part, formats[index])
+                            dbg!(&rest_part, &formats[index]);
+                            format!(
+                                "{}{sepIndicator}{}{sepIndicator}",
+                                rest_part,
+                                formats[index],
+                                sepIndicator = if module_type == ModuleType::Separator {
+                                    "<!"
+                                } else {
+                                    ""
+                                }
+                            )
                         } else {
                             "".to_string()
                         };
+
+                        // Push our new formatted part into the output string (value: String)
                         value.push_str(&output);
                     }
                 }
@@ -273,6 +314,13 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
             Some(val) => val,
             None => "".to_string(),
         };
-        (name.to_owned(), (key.to_string(), value, module_type))
+        ParsedModuleObject {
+            name: name.to_owned(),
+            key: key.to_string(),
+            parsed_module: value,
+            module_type,
+            format_string: module.format,
+            disabled_walls: module.walls.unwrap_or(false),
+        }
     }
 }
