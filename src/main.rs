@@ -321,11 +321,8 @@ fn create_output(
         if debug {
             dbg!(&module);
         };
+
         // get number of spaces
-        // I remove 1 space on the default option because the padding becomes janky and adds one extra space
-        // No idea what is the cause of this ¯\_(ツ)_/¯
-        //
-        // If you happen to find the reason/fix for this, please do a better implementation :-)
         let numspaces = match display.textfield.gap {
             Some(val) => val + module.parsed_module.len(),
             None => &longest_module - module.key.len() - separator.len(),
