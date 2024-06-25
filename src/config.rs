@@ -43,7 +43,7 @@ pub struct ParsedModuleObject {
     pub parsed_module: String,
     pub module_type: ModuleType,
     pub format_string: Option<String>,
-    pub disabled_walls: bool
+    pub disabled_walls: bool,
 }
 
 // Config section
@@ -110,7 +110,11 @@ pub struct Module {
 }
 
 impl Config {
-    pub fn get_config(info: &OsInfo, custom_configuration: (bool, Vec<String>)) -> Config {
+    pub fn get_config(
+        info: &OsInfo,
+        custom_configuration: (bool, Vec<String>),
+        debug: bool,
+    ) -> Config {
         let config_dir = path::Path::new(dirs::config_dir().unwrap().as_path()).join(
             if info.os_type == "macos" {
                 "se.spamix.fetch"
@@ -118,6 +122,11 @@ impl Config {
                 "fetch"
             },
         );
+
+        if debug {
+            dbg!(&custom_configuration);
+        }
+
         let configuration_file = if custom_configuration.0 == true {
             custom_configuration.1.get(0).unwrap().to_owned()
         } else if config_dir.join("config.toml").try_exists().is_err() {
@@ -132,6 +141,7 @@ default_art = "~/.config/fetch/art/default"
 
 [display]
 [display.textfield]
+separator=": "
 [modules]
 modules = ["userhost", "separator", "shell", "os", "kernel"]
 
@@ -155,7 +165,8 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
 
         config
     }
-    pub fn parse_module(info: &OsInfo, module: Module) -> ParsedModuleObject {
+
+    pub fn parse_module(info: &OsInfo, module: Module, debug: bool) -> ParsedModuleObject {
         let name = &module.name;
 
         let os_release = info.os_release_file_content.os_release.clone();
@@ -168,6 +179,7 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
         let module_type = module.module_type;
 
         // TODO: Add more modules
+        #[allow(unreachable_patterns)]
         match module_type {
             ModuleType::Shell => formats.push(info.shell.clone()),
             ModuleType::Kernel => formats.push(info.os_release.clone()),
@@ -288,7 +300,9 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
                 None => {
                     formats.iter().enumerate().for_each(|val| {
                         value.push_str(val.1.as_str());
-                        dbg!(&val);
+                        if debug {
+                            dbg!(&val);
+                        }
                         if !val.1.is_empty() && val.0 != formats.len() - 1 {
                             value.push(' ')
                         }
@@ -306,7 +320,7 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
             parsed_module: value,
             module_type,
             format_string: module.format,
-            disabled_walls: module.walls.unwrap_or(false)
+            disabled_walls: module.walls.unwrap_or(false),
         }
     }
 }
