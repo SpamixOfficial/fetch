@@ -227,8 +227,8 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
                                         );
                                         exit(1);
                                     }
-                                };
-                            String::from_utf8_lossy(&execute_command_output).to_string()
+                                }; 
+                            String::from_utf8_lossy(&execute_command_output).to_string().replace("\n", " ")
                         } else {
                             eprintln!("Module \"custom\" may NOT have an empty format variable if variable execute isn't used!");
                             exit(1);
@@ -247,7 +247,6 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
             match module.format {
                 Some(_) => {
                     for part in module.format.as_ref().unwrap().split_inclusive('}') {
-                        dbg!(part);
                         // find where the format part starts
                         // If this fails, we just push the part to our value string
                         let start_index = match part.find("{") {
@@ -278,7 +277,6 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
 
                         // empty values are skipped
                         let output = if !formats[index].is_empty() {
-                            dbg!(&rest_part, &formats[index]);
                             format!(
                                 "{}{sepIndicator}{}{sepIndicator}",
                                 rest_part,

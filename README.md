@@ -1,4 +1,4 @@
-# Fetch
+# Bluefetch
 
 Simple fetch command written in rust
 
@@ -127,19 +127,7 @@ Exit Statuses:
 SpamixOfficial 2024
 ```
 
-## Configuration
-### Modules
-Current implemented modules are:
-| Name              | Type     | Format                          |
-|-------------------|----------|---------------------------------|
-| Operating System  | os       | {PRETTY_NAME}{VERSION_ID}{Arch} |
-| Kernel            | kernel   | {kernel}                        |
-| User and Hostname | userhost | {user}{hostname}                |
-| Shell             | shell    | {shell_path}                    |
+## Documentation (and configuration!)
+Check the [navigation file](docs/README.md) for all documentation pages. 
 
-## Adding your own logo
-Since only a few logos are included by default, no linux distro logos are included.
-
-To add your own logo, create a /etc/ascii-art file and paste your art in there.
-
-Fetch will automatically use that file if it exists
+This includes the configuration pages, in case you were looking for the configuration

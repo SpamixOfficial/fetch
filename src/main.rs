@@ -205,11 +205,15 @@ fn create_output(
         parsed_modules.push(parsed);
     }
 
+    if debug {
+        dbg!(&parsed_modules);
+    }
+
     // get longest module
     //
     // IMPORTANT: Dont confuse the longest module with the longest art line (longest_item)
     // The variables look the same but they are used for different purposes!
-    let mut longest_module = parsed_modules
+    let longest_module = parsed_modules
         .iter()
         .map(|m| m.key.len() + m.parsed_module.len())
         .max()
@@ -234,9 +238,7 @@ fn create_output(
 
     let separator = display.textfield.separator.unwrap_or(": ".to_string());
     let textfield_walls = display.textfield.walls.unwrap_or(String::from(""));
-
-    longest_module += separator.len();
-
+ 
     if debug {
         dbg!(&textfield_walls);
     }
@@ -320,13 +322,17 @@ fn create_output(
         };
         if debug {
             dbg!(&module);
-        };
+        }; 
 
         // get number of spaces
         let numspaces = match display.textfield.gap {
             Some(val) => val + module.parsed_module.len(),
             None => &longest_module - module.key.len() - separator.len(),
         };
+
+        if debug {
+            dbg!(&numspaces);
+        }
 
         // Create all the fieldstrings
         // Disable walls if they happen to be disabled in the module
