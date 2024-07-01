@@ -43,7 +43,7 @@ pub struct ParsedModuleObject {
     pub parsed_module: String,
     pub module_type: ModuleType,
     pub format_string: Option<String>,
-    pub disabled_walls: bool,
+    pub walls: bool,
 }
 
 // Config section
@@ -312,13 +312,14 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
             Some(val) => val,
             None => "".to_string(),
         };
+        dbg!(&module.walls);
         ParsedModuleObject {
             name: name.to_owned(),
             key: key.to_string(),
             parsed_module: value,
             module_type,
             format_string: module.format,
-            disabled_walls: module.walls.unwrap_or(false),
+            walls: module.walls.unwrap_or(true),
         }
     }
 }

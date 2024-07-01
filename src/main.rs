@@ -238,7 +238,7 @@ fn create_output(
 
     let separator = display.textfield.separator.unwrap_or(": ".to_string());
     let textfield_walls = display.textfield.walls.unwrap_or(String::from(""));
- 
+
     if debug {
         dbg!(&textfield_walls);
     }
@@ -280,7 +280,8 @@ fn create_output(
                             // If there isnt a format string we just do the usual stuff
                             // That is looping for a length and inserting it
                             let sep_char: char = v.parsed_module.chars().collect::<Vec<char>>()[0];
-                            for _ in 0..longest_module {
+                            // Cursed math statement but turned out to be the easiest way possible
+                            for _ in 0..longest_module + (if !v.walls { 2 } else { 0 }) {
                                 v_clone.parsed_module.push(sep_char)
                             }
                         }
@@ -303,7 +304,7 @@ fn create_output(
 
                             v_clone.parsed_module.push_str(sep_before);
 
-                            for _ in 0..(longest_module
+                            for _ in 0..(longest_module + (if !v.walls { 2 } else { 0 })
                                 - sep_before.chars().count()
                                 - sep_after.chars().count())
                             {
@@ -322,7 +323,7 @@ fn create_output(
         };
         if debug {
             dbg!(&module);
-        }; 
+        };
 
         // get number of spaces
         let numspaces = match display.textfield.gap {
@@ -338,9 +339,9 @@ fn create_output(
         // Disable walls if they happen to be disabled in the module
         tmp_fieldstrings.push(format!(
             "{}{}{}{:>spaces$}{}",
-            if !module.disabled_walls {
+            if module.walls {
                 textfield_walls.clone()
-            } else {
+            } else { 
                 String::from("")
             },
             module.key,
@@ -350,7 +351,7 @@ fn create_output(
                 ""
             },
             module.parsed_module,
-            if !module.disabled_walls {
+            if module.walls {
                 textfield_walls.clone()
             } else {
                 String::from("")
