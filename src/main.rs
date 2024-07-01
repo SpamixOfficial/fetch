@@ -237,7 +237,10 @@ fn create_output(
     //       That is the separator setting
 
     let separator = display.textfield.separator.unwrap_or(": ".to_string());
-    let textfield_walls = display.textfield.walls.unwrap_or(String::from(""));
+    let textfield_walls = display.textfield.walls.unwrap_or(String::new());
+    let gap = display.textfield.gap.unwrap_or(0);
+
+    let longest_length = longest_module + separator.len() + gap;
 
     if debug {
         dbg!(&textfield_walls);
@@ -265,12 +268,11 @@ fn create_output(
                 // not fuck up borrows
                 let mut v_clone = v.clone();
                 // In case this is the fancy separator module, we have a special case for it
-                // If not, we simply return the v_clone val!
                 if v.module_type == ModuleType::Separator {
                     // Here we set v_clone.1 to a new string, because we will override the string
                     // we got with a new output. The output in v_clone.1 is just the raw-char from
                     // the beginning, therefore we need to change it
-                    v_clone.parsed_module = String::new();
+                    v_clone.parsed_module = String::with_capacity(longest_length);
                     // Here we check if a format was used by literally checking if a format string
                     // exists
                     //
@@ -279,9 +281,9 @@ fn create_output(
                         None => {
                             // If there isnt a format string we just do the usual stuff
                             // That is looping for a length and inserting it
-                            let sep_char: char = v.parsed_module.chars().collect::<Vec<char>>()[0];
+                            let sep_char: char = v.parsed_module.chars().next().unwrap();
                             // Cursed math statement but turned out to be the easiest way possible
-                            for _ in 0..longest_module + (if !v.walls { 2 } else { 0 }) {
+                            for _ in 0..longest_length {
                                 v_clone.parsed_module.push(sep_char)
                             }
                         }
@@ -304,20 +306,20 @@ fn create_output(
 
                             v_clone.parsed_module.push_str(sep_before);
 
-                            for _ in 0..(longest_module + (if !v.walls { 2 } else { 0 })
-                                - sep_before.chars().count()
-                                - sep_after.chars().count())
-                            {
+                            for _ in 0..(longest_length - sep_before.len() - sep_after.len()) {
                                 v_clone.parsed_module.push_str(sep)
                             }
                             v_clone.parsed_module.push_str(sep_after);
                         }
                     };
+                } else if v_clone.key.is_empty() {
+                    // append spaces to the end if not KEY<separator><spaces>VALUE like module
+                    v_clone.parsed_module = format!("{:^longest_length$}", v_clone.parsed_module);
                 }
                 v_clone
             }
             None => {
-                eprintln!("Error! Module \"{}\" is undefined", val);
+                eprintln!("Error! Module \"{val}\" is undefined");
                 exit(1);
             }
         };
@@ -326,24 +328,19 @@ fn create_output(
         };
 
         // get number of spaces
-        let numspaces = match display.textfield.gap {
-            Some(val) => val + module.parsed_module.len(),
-            None => &longest_module - module.key.len() - separator.len(),
-        };
+        let numspaces = &longest_module - module.key.len() + display.textfield.gap.unwrap_or(0);
 
         if debug {
             dbg!(&numspaces);
         }
 
-        // Create all the fieldstrings
         // Disable walls if they happen to be disabled in the module
+        let wall = if module.walls { &textfield_walls } else { "" };
+
+        // Create all the fieldstrings
         tmp_fieldstrings.push(format!(
             "{}{}{}{:>spaces$}{}",
-            if module.walls {
-                textfield_walls.clone()
-            } else { 
-                String::from("")
-            },
+            wall,
             module.key,
             if !module.key.is_empty() {
                 &separator
@@ -351,11 +348,7 @@ fn create_output(
                 ""
             },
             module.parsed_module,
-            if module.walls {
-                textfield_walls.clone()
-            } else {
-                String::from("")
-            },
+            wall,
             spaces = if !module.key.is_empty() { numspaces } else { 0 }
         ));
     });
@@ -420,25 +413,25 @@ fn create_output(
                 art_lines[i - wait.1].to_string()
             } else {
                 spaces_needed = longest_art_line;
-                String::from("")
+                String::new()
             };
             line2 = if i < tmp_fieldstrings.len() {
                 tmp_fieldstrings[i].as_str().to_string()
             } else {
-                String::from("")
+                String::new()
             };
         } else {
             line1 = if i < art_lines.len() {
                 art_lines[i].to_string()
             } else {
-                String::from("")
+                String::new()
             };
             line2 = if wait_counter == 0 && i - wait.1 < tmp_fieldstrings.len() {
                 spaces_needed = 0;
                 tmp_fieldstrings[i - wait.1].to_string()
             } else {
                 spaces_needed = longest_art_line;
-                String::from("")
+                String::new()
             };
         }
         if wait_counter != 0 {
@@ -452,11 +445,7 @@ fn create_output(
             "",
             "",
             line2,
-            displaygap = if display.gap.is_some() {
-                display.gap.unwrap()
-            } else {
-                0
-            }
+            displaygap = display.gap.unwrap_or(0)
         ));
     }
 
