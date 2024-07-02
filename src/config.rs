@@ -145,7 +145,7 @@ separator=": "
 [modules]
 modules = ["userhost", "separator", "shell", "os", "kernel"]
 
-definitions = [{name = "separator", separator_char = '-', type = "separator"},{name = "kernel", key = "KERNEL", type = "kernel"}, {name = "shell", key = "SHELL", type = "shell"},{name = "userhost", format = "{1}@{2}", type = "userhost"},{name = "os", key = "OS", type = "os"}]"#;
+definitions = [{name = "separator", separator_char = '-', type = "separator"}, {name = "kernel", key = "KERNEL", type = "kernel"}, {name = "shell", key = "SHELL", type = "shell"}, {name = "userhost", format = "{1}@{2}", type = "userhost"}, {name = "os", key = "OS", type = "os"}]"#;
 
         let file_content = match fs::read_to_string(configuration_file) {
             Ok(val) => val,
@@ -227,8 +227,10 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
                                         );
                                         exit(1);
                                     }
-                                }; 
-                            String::from_utf8_lossy(&execute_command_output).to_string().replace("\n", " ")
+                                };
+                            String::from_utf8_lossy(&execute_command_output)
+                                .to_string()
+                                .replace("\n", " ")
                         } else {
                             eprintln!("Module \"custom\" may NOT have an empty format variable if variable execute isn't used!");
                             exit(1);
@@ -312,7 +314,9 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"},{n
             Some(val) => val,
             None => "".to_string(),
         };
-        dbg!(&module.walls);
+        if debug {
+            dbg!(&module.walls);
+        }
         ParsedModuleObject {
             name: name.to_owned(),
             key: key.to_string(),
