@@ -17,8 +17,8 @@ fn main() {
     let debug: bool;
 
     let mut arguments = taap::Argument::new(
-        "fetch",
-        "Minimal and easy fetch tool written in rust",
+        "bluefetch",
+        "Minimal but advanced fetch tool written in rust",
         "",
         "SpamixOfficial 2024",
     );
@@ -83,9 +83,9 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
     // Ignore the weird rust formatting
     let config_dir =
         path::Path::new(dirs::config_dir().unwrap().as_path()).join(if info.os_type == "macos" {
-            "se.spamix.fetch"
+            "se.spamix.bluefetch"
         } else {
-            "fetch"
+            "bluefetch"
         });
 
     // As you see we can define a custom art_directory in the config, which we try to use if it
@@ -97,11 +97,11 @@ fn get_ascii(info: &OsInfo, custom_logo: Option<String>, config: &Config) -> Str
         None => {
             if config_dir.join("art").exists() {
                 config_dir.join("art")
-            } else if path::Path::new("/etc/fetch/art/").exists() {
-                path::Path::new("/etc/fetch/art").to_path_buf()
+            } else if path::Path::new("/etc/bluefetch/art/").exists() {
+                path::Path::new("/etc/bluefetch/art").to_path_buf()
             } else {
                 if !cfg!(target_os = "macos") {
-                    println!("Error: No art directory is present. Please create either \"/etc/fetch/art/\" or \"{}/art\" and install the required art!", config_dir.to_str().unwrap());
+                    println!("Error: No art directory is present. Please create either \"/etc/bluefetch/art/\" or \"{}/art\" and install the required art!", config_dir.to_str().unwrap());
                 } else {
                     println!("Error: No art directory is present. Please create \"{}/art\" and install the required art!", config_dir.to_str().unwrap());
                 }

@@ -1,6 +1,6 @@
 # Bluefetch
 
-Simple fetch command written in rust
+Minimal fetch command written in rust
 
 ## NOTE
 This tool is still in development so things might change quickly or (worst case scenario) break.
@@ -86,7 +86,7 @@ $ make install INSTALL_MODE="USER"
 ```
 
 ## Usage
-Use `fetch` for the default output
+Use `bluefetch` for the default output
 
 Use the `--os-logo` parameter for specifying another logo (must be on the list below)
 
@@ -94,7 +94,7 @@ Use as follows:
 
 ```
 # Name is the name of an OS on the list below
-$ fetch --os-logo NAME
+$ bluefetch --os-logo NAME
 ```
 
 | OS      | Name    |
@@ -109,15 +109,17 @@ $ fetch --os-logo NAME
 
 Use the `-h` or `--help` parameter for the help page as follows:
 ```
-$ fetch --help
-Usage: fetch [OPTIONS]
-Minimal and easy fetch tool written in rust
+$ bluefetch --help
+Usage: bluefetch [OPTIONS]
+Minimal but advanced fetch tool written in rust
 
 Positional Arguments:
 
 Options:
     -h	--help		Use this to print this help message
+    -c	--config	Manually specify the config file
      	--os-logo	Manually specify OS logo
+    -d	--debug		
 
 Exit Statuses:
     0	Everything went well

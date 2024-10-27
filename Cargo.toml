@@ -1,8 +1,8 @@
 [package]
-name = "fetch"
+name = "bluefetch"
 version = "0.1.0"
 edition = "2021"
-description = "A small fetch tool written in rust"
+description = "A minimal but advanced fetch tool written in rust"
 license = "BSD-4-Clause"
 repository = "https://gitlab.com/SpamixOfficial/fetch"
 keywords = ["fetch", "system-info"]

@@ -5,11 +5,11 @@ This is where I keep all the plans and ideas I have for this. See the checklist 
 ## Checklist
 
 - [X] Configuration files
-- [ ] Color
+- [ ] Color (Works ~isch atm with ansi escape codes?)
 - [X] Logo files instead of hardcoded logos
 - [X] Fix MacOS "OsRelease"
-- [ ] Rebrand to bluefetch
-- [ ] Proper documentation
+- [X] Rebrand to bluefetch
+- [X] Proper documentation
 - [X] Fix separator module format.
 - [X] Formatting for custom module
 
