@@ -11,7 +11,7 @@ This is where I keep all the plans and ideas I have for this. See the checklist 
 - [ ] Rebrand to bluefetch
 - [ ] Proper documentation
 - [X] Fix separator module format.
-- [ ] Formatting for custom module
+- [X] Formatting for custom module
 
 ## Config Checklist
 ### General

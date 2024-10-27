@@ -208,11 +208,12 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"}, {
                 }
             }),
             ModuleType::Custom => {
-                value = match module.format.as_ref() {
-                    Some(val) => val.clone(),
-                    None => {
+                if let Some(x) = &module.format {
+                    if module.execute.is_none() {
+                        value = x.to_owned()
+                    } else {
                         if !module.execute.is_none() {
-                            let execute_options = module.execute.unwrap().clone();
+                            let execute_options = module.execute.as_ref().unwrap().clone();
                             let execute_command_output =
                                 match Command::new(execute_options.get(0).unwrap())
                                     .args(execute_options[1..].iter())
@@ -228,9 +229,21 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"}, {
                                         exit(1);
                                     }
                                 };
-                            String::from_utf8_lossy(&execute_command_output)
-                                .to_string()
-                                .replace("\n", " ")
+                            // Witchcraft essentially
+                            //
+                            // First we take our output, we replace all newlines with spaces, then
+                            // we split by these spaces, and then we collect into a vector of
+                            // strings....
+                            //
+                            // Cool right?
+                            let mut space_separated_vals: Vec<String> =
+                                String::from_utf8_lossy(&execute_command_output)
+                                    .replace("\n", " ")
+                                    .split_whitespace()
+                                    .map(|f| f.to_string())
+                                    .collect();
+                            // Finally we take our output and add it to our format values
+                            formats.append(&mut space_separated_vals);
                         } else {
                             eprintln!("Module \"custom\" may NOT have an empty format variable if variable execute isn't used!");
                             exit(1);
@@ -246,9 +259,9 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"}, {
 
         // Parse the format string, except if the module type is custom
         if module_type != ModuleType::Custom {
-            match module.format {
-                Some(_) => {
-                    for part in module.format.as_ref().unwrap().split_inclusive('}') {
+            match &module.format {
+                Some(format) => {
+                    for part in format.split_inclusive('}') {
                         // find where the format part starts
                         // If this fails, we just push the part to our value string
                         let start_index = match part.find("{") {
@@ -267,13 +280,13 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"}, {
                         {
                             Ok(val) => val.clone() - 1,
                             Err(_) => {
-                                eprintln!("Failed to get index format in string:\n{}", part);
+                                eprintln!("({}) Failed to get index format in string:\n{}", module.name, part);
                                 exit(1);
                             }
                         };
 
                         if index >= formats.len() {
-                            eprintln!("Error! Format index is bigger than the module returns\n>>>\"{}\"<<<", part);
+                            eprintln!("({}) Error! Format index is bigger than the module returns\n>>>\"{}\"<<<", module.name, part);
                             exit(1);
                         }
 
@@ -309,6 +322,59 @@ definitions = [{name = "separator", separator_char = '-', type = "separator"}, {
                     });
                 }
             };
+        } else if module.format.is_some() && module.execute.is_some() {
+            // Implementation for execute format
+            for part in module.format.as_ref().unwrap().split_inclusive('}') {
+                // find where the format part starts
+                // If this fails, we just push the part to our value string
+                let start_index = match part.find("{") {
+                    Some(val) => val,
+                    None => {
+                        value.push_str(part);
+                        continue;
+                    }
+                };
+                // Get the part that isnt a format
+                let rest_part = &part[..start_index];
+                // get what index of the module values the format requests
+                let index = match &part[start_index + 1..start_index + 2]
+                    .to_string()
+                    .parse::<usize>()
+                {
+                    Ok(val) => val.clone() - 1,
+                    Err(_) => {
+                        eprintln!("({}) Failed to get index format in string:\n{}", module.name, part);
+                        exit(1);
+                    }
+                };
+                if index >= formats.len() {
+                    eprintln!(
+                        "({}) Error! Format index is bigger than the module returns\n>>>\"{}\"<<<",
+                        module.name,
+                        part
+                    );
+                    exit(1);
+                }
+
+                // empty values are skipped
+                let output = if !formats[index].is_empty() {
+                    format!(
+                        "{}{sepIndicator}{}{sepIndicator}",
+                        rest_part,
+                        formats[index],
+                        sepIndicator = if module_type == ModuleType::Separator {
+                            "<!"
+                        } else {
+                            ""
+                        }
+                    )
+                } else {
+                    "".to_string()
+                };
+
+                // Push our new formatted part into the output string (value: String)
+                value.push_str(&output);
+            }
         }
         let key = match module.key {
             Some(val) => val,

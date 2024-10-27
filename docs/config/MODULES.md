@@ -48,9 +48,6 @@ Please take a look at the TOML example located [here](#example-modules-section-i
 | Separator         | separator | {separator_character(1)}                 | separator_char       |
 | Custom            | custom    |                                          | execute              |
 
-> [!IMPORTANT]  
-> At the moment theres no format for custom modules
-
 How to read format string:
 
 ```text
